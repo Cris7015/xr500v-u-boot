@@ -1,0 +1,54 @@
+// SPDX-License-Identifier: GPL-2.0+
+/dts-v1/;
+
+#include "econet,en7512.dtsi"
+
+/ {
+	model = "TP-Link Archer XR500v v1 (RAM-only Ethernet chainload)";
+	compatible = "tplink,archer-xr500v", "econet,en751221",
+		     "econet,en7512";
+
+	/*
+	 * Bootbase/BLDR has already initialized DDR before this image is
+	 * entered.  Keep the final MiB hidden so the OpenWrt ramoops area is
+	 * never used by U-Boot allocations.
+	 */
+	memory@0 {
+		device_type = "memory";
+		reg = <0x00000000 0x10000000>;
+	};
+
+	aliases {
+		serial0 = &uart0;
+		ethernet0 = &gmac0;
+	};
+
+	chosen {
+		stdout-path = "serial0:115200n8";
+	};
+};
+
+&uart0 {
+	status = "okay";
+};
+
+/*
+ * This target is still RAM-only: no flash controller is exposed and the
+ * environment cannot be persisted.  Only the FE/QDMA and integrated switch
+ * path is added over the console-only target.
+ */
+&sfc {
+	status = "disabled";
+};
+
+&ethernet {
+	status = "okay";
+};
+
+&gmac0 {
+	status = "okay";
+};
+
+&switch0 {
+	status = "okay";
+};

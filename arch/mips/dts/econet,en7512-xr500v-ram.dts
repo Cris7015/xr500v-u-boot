@@ -1,0 +1,49 @@
+// SPDX-License-Identifier: GPL-2.0+
+/dts-v1/;
+
+#include "econet,en7512.dtsi"
+
+/ {
+	model = "TP-Link Archer XR500v v1 (RAM-only chainload)";
+	compatible = "tplink,archer-xr500v", "econet,en751221",
+		     "econet,en7512";
+
+	/*
+	 * The XR500v boot log and its live OpenWrt DTS both establish 256 MiB.
+	 * U-Boot proper is entered only after the proprietary Bootbase/BLDR has
+	 * already initialized DDR; this target does not perform cold DDR setup.
+	 */
+	memory@0 {
+		device_type = "memory";
+		reg = <0x00000000 0x10000000>;
+	};
+
+	aliases {
+		serial0 = &uart0;
+	};
+
+	chosen {
+		stdout-path = "serial0:115200n8";
+	};
+};
+
+&uart0 {
+	status = "okay";
+};
+
+/*
+ * First-light is deliberately console-only.  Keep every flash and network
+ * device disabled until RAM entry, relocation, console input and power-cycle
+ * recovery have been demonstrated on the XR500v.
+ */
+&sfc {
+	status = "disabled";
+};
+
+&ethernet {
+	status = "disabled";
+};
+
+&switch0 {
+	status = "disabled";
+};

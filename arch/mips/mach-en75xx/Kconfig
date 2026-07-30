@@ -56,4 +56,21 @@ config BOARD_EN7512_REFERENCE
 	  TPL initializes the serial flash controller, executes the legacy DDR
 	  calibration stage from FE SRAM and loads SPL into DDR.
 
+config BOARD_EN7512_XR500V_RAM
+	bool "TP-Link Archer XR500v RAM-only chainload"
+	help
+	  Build only U-Boot proper for loading at 0x81000000 after the
+	  proprietary Bootbase/BLDR has initialized DDR.  This target has no
+	  TPL/SPL flash image and deliberately disables SPI, MTD and Ethernet
+	  for the first console-only hardware validation.
+
+config BOARD_EN7512_XR500V_RAM_ETH
+	bool "TP-Link Archer XR500v RAM-only Ethernet chainload"
+	select BOARD_LATE_INIT
+	help
+	  Build only U-Boot proper for loading at 0x81000000 after the
+	  proprietary Bootbase/BLDR has initialized DDR.  This target adds the
+	  EN751221 FE/QDMA and switch Ethernet path but deliberately keeps SPI,
+	  MTD and all persistent environment support disabled.
+
 endmenu

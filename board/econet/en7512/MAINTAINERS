@@ -1,8 +1,13 @@
-EN7512 REFERENCE BOARD
+EN7512 BOARDS
 S: Orphan
 F: arch/mips/mach-en75xx/
 F: board/econet/en7512/
 F: configs/en7512_reference_defconfig
+F: configs/en7512_xr500v_ram_defconfig
+F: configs/en7512_xr500v_ram_eth_defconfig
 F: arch/mips/dts/econet,en7512-reference.dts
+F: arch/mips/dts/econet,en7512-xr500v-ram.dts
+F: arch/mips/dts/econet,en7512-xr500v-ram-eth.dts
+F: contrib/xr500v/
 F: doc/board/econet/
 F: tools/en7512_image.py
