@@ -1,0 +1,30 @@
+#!/usr/bin/expect -f
+# SPDX-License-Identifier: GPL-2.0+
+
+set timeout -1
+set device [lindex $argv 0]
+set logfile [lindex $argv 1]
+
+if {$device eq "" || $logfile eq ""} {
+	puts stderr "usage: capture-bldr.exp /dev/ttyUSB0 LOGFILE"
+	exit 2
+}
+
+spawn sudo -n picocom --baud 115200 --databits 8 --parity n --stopbits 1 \
+	--flow n --send-cmd {sx --xmodem --binary -vv} \
+	--logfile $logfile $device
+
+expect {
+	-re {Press any key} {
+		# Bootbase exposes only a 0.1-second interrupt window.
+		send -- "\r\r\r"
+		exp_continue
+	}
+	-re {bldr>} {
+		send_user "\nXR500v BLDR prompt captured; automatic input stopped.\n"
+		interact
+	}
+	eof {
+		exit 1
+	}
+}
