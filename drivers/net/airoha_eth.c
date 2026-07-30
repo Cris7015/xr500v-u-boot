@@ -1116,13 +1116,20 @@ static int airoha_switch_init(struct udevice *dev, struct airoha_eth *eth)
 				 SWITCH_BC_FFP | SWITCH_UNM_FFP | SWITCH_UNU_FFP |
 				 SWITCH_CPU_EN | FIELD_PREP(SWITCH_CPU_PORT, 6));
 
-		pmcr = SWITCH_IPG_CFG_SHRINK | SWITCH_MAC_MODE |
-		       SWITCH_FORCE_MODE | SWITCH_MAC_TX_EN |
+		pmcr = SWITCH_MAC_MODE | SWITCH_FORCE_MODE | SWITCH_MAC_TX_EN |
 		       SWITCH_MAC_RX_EN | SWITCH_BKOFF_EN | SWITCH_BKPR_EN |
 		       SWITCH_FORCE_SPD_1000 | SWITCH_FORCE_DPX |
 		       SWITCH_FORCE_LNK;
-		airoha_switch_wr(eth, SWITCH_PMCR(5), pmcr);
-		airoha_switch_wr(eth, SWITCH_PMCR(6), pmcr);
+
+		/*
+		 * P5 is the TRGMII cascade to the external MCM switch while P6
+		 * is the CPU port.  The EN751221 OEM setup uses shrink IPG only
+		 * on the cascade and short IPG on the CPU link.
+		 */
+		airoha_switch_wr(eth, SWITCH_PMCR(5),
+				 pmcr | SWITCH_IPG_CFG_SHRINK);
+		airoha_switch_wr(eth, SWITCH_PMCR(6),
+				 pmcr | SWITCH_IPG_CFG_SHORT);
 		airoha_switch_wr(eth, SWITCH_PHY_POLL, 0x7f7f8c08);
 
 		return 0;
