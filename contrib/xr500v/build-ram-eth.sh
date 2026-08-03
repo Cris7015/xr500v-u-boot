@@ -32,7 +32,7 @@ entry=$("${cross_compile}readelf" -h "$elf" |
 test "$entry" = "0x81000000"
 
 for symbol in MTD SPI SPL TPL CMD_SAVEENV CMD_BOOTP CMD_DHCP \
-	CMD_TFTPBOOT CMD_MII CMD_MDIO CMD_NFS CMD_SNTP CMD_WGET; do
+	CMD_MII CMD_MDIO CMD_NFS CMD_SNTP CMD_WGET; do
 	grep -qx "# CONFIG_${symbol} is not set" "$config"
 done
 for setting in \
@@ -41,7 +41,8 @@ for setting in \
 	'CONFIG_NET=y' \
 	'CONFIG_DM_ETH=y' \
 	'CONFIG_AIROHA_ETH=y' \
-	'CONFIG_CMD_PING=y'; do
+	'CONFIG_CMD_PING=y' \
+	'CONFIG_CMD_TFTPBOOT=y'; do
 	grep -qx "$setting" "$config"
 done
 
