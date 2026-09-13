@@ -1,20 +1,24 @@
 EN751221 DDR calibration source
 ===============================
 
-The files under ``reconstructed/`` preserve the code, symbols and relocations
-from the GPL DDR calibration objects as assembly source.  No prebuilt DDR
-binary or object is required by the U-Boot build.
+The EN751221 DDR calibration stage is built entirely from source.
 
-The original stage executes from FE SRAM at ``0x9fa32800``.  The build helper
-uses the original object order (head, setup, start_spram, UART/timer/string,
-calibration and finally SPRAM helpers), matching the linked vendor layout.
+The six calibration translation units recovered by Merbanan are combined with
+the original GPL bootrom startup, UART, timer, string and SPRAM implementations.
+Legacy BSP headers are not build dependencies; the required EN751221 register
+interface is provided by ``en751221_ddr.h``.
 
-Merbanan independently recovered the six calibration translation units as C.
-With the original BSP headers and GCC 4.9.3 they reproduce all corresponding
-objects byte for byte and reproduce the 20336-byte vendor ``spram.img``.  Those
-sources are preserved under ``reference/recovered-c/`` for review and for the
-next conversion step; they are intentionally not build inputs yet because they
-still depend on the original BSP ``dramc.h`` and ``asm/tc3162.h`` interfaces.
+The original stage executes from FE SRAM at ``0x9fa32800``. Keep the source
+order in ``tools/build-econet-ddr.sh`` synchronized with the known-good
+EN7512 V1.2.2 stage:
 
-Use ``tools/build-econet-ddr.sh en751221`` with a big-endian GNU MIPS
-toolchain to produce the temporary build artifact consumed by Binman.
+``head, setup, main, init, time, string, dramc, dramc_dq_dqs_cal,
+dramc_dle_cal, dramc_dqs_gw_cal, en7512_dramc_init, spram``.
+
+The vendor recovery baseline was a 20336-byte ``spram.img``. A source build
+using a newer compiler is not required to be byte-identical; the ABI, SRAM
+VMA and hardware behaviour are the acceptance criteria.
+
+``tools/build-econet-ddr.sh en751221`` currently emits
+``en751221_ddr.bin`` as a temporary build artifact. It is not a checked-in
+firmware blob.

@@ -1389,8 +1389,9 @@ define deprecated
 
 endef
 
-# Build the standalone EN751627/EN7528 flash entry, without TPL or SPL.
+# Build the standalone EN751221/EN751627/EN7528 flash entry, without TPL or SPL.
 ifeq ($(CONFIG_ECONET_FLASH_BOOT),y)
+econet-flash-soc-$(CONFIG_TARGET_EN751221) := en751221
 econet-flash-soc-$(CONFIG_TARGET_EN751627) := en751627
 econet-flash-soc-$(CONFIG_TARGET_EN7528) := en7528
 econet-flash-soc := $(econet-flash-soc-y)
@@ -1410,6 +1411,7 @@ cmd_econet_flash = srctree="$(abspath $(srctree))" objtree="$(CURDIR)" \
 tcboot.bin: u-boot.img $(wildcard $(econet-flash-dir)/*.[chS]) \
 	$(wildcard $(econet-flash-dir)/*.lds) \
 	$(wildcard $(econet-flash-dir)/$(econet-flash-soc)/*.S) \
+	$(wildcard $(econet-flash-dir)/$(econet-flash-soc)/*.lds) \
 	$(wildcard $(econet-flash-ddr-dir)/reconstructed/*.S) \
 	$(wildcard $(econet-flash-ddr-dir)/readable/*) \
 	$(wildcard $(econet-flash-ddr-dir)/*) \

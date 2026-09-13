@@ -13,9 +13,14 @@ case "$soc" in
   emulation=elf32btsmip
   cc_default=mips-linux-gnu-
   out="$objtree/en751221_ddr.bin"
-  # Preserve the vendor link order.  In particular start_spram/UART/timer
-  # precede the calibration objects in the original EN7512 spram image.
-  asm_order="head setup main init time string dramc dramc_dq_dqs_cal dramc_dle_cal dramc_dqs_gw_cal en7512_dramc_init spram"
+  # Preserve the link order of the known-good EN7512 V1.2.2 spram stage.
+  # The calibration blocks are recovered C and the remaining objects come
+  # from their GPL bootrom sources.
+  source_order="head.S setup.c main.c init.c time.c string.c \
+dramc.c dramc_dq_dqs_cal.c dramc_dle_cal.c dramc_dqs_gw_cal.c \
+en7512_dramc_init.c spram.c"
+  no_reconstructed=1
+  ddr_variant="source V1.2.2"
   ;;
  en751627)
   dir="$srctree/arch/mips/mach-econet/en751627/ddr"
@@ -72,7 +77,7 @@ build="$objtree/.econet-ddr-$soc"
 rm -rf "$build"
 mkdir -p "$build"
 
-cflags="$endian -mabi=32 -mips32r2 -msoft-float -mno-abicalls -fno-pic -ffreestanding -fno-builtin -Os -G0"
+cflags="$endian -mabi=32 -mips32r2 -msoft-float -mno-abicalls -fno-pic -fno-pie -ffreestanding -fno-builtin -Os -G0"
 # An omitted section symbol silently turns a relocation into an absolute one.
 if [ -z "${no_reconstructed:-}" ]; then
  for src in "$dir"/reconstructed/*.S; do
@@ -91,7 +96,8 @@ compile_asm()
  src="$1"
  [ -f "$src" ] || return 0
  obj="$build/$(basename "${src%.S}").o"
- "$cc" $cflags -x assembler-with-cpp -c "$src" -o "$obj"
+ "$cc" $cflags -D__ASSEMBLY__ -I"$dir" \
+  -x assembler-with-cpp -c "$src" -o "$obj"
  objs="$objs $obj"
 }
 
@@ -100,36 +106,45 @@ compile_c()
  src="$1"
  [ -f "$src" ] || return 0
  obj="$build/$(basename "${src%.c}").o"
- "$cc" $cflags -fomit-frame-pointer -fno-stack-protector \
+ "$cc" $cflags -I"$srctree/include" -I"$srctree/arch/mips/include" -I"$dir" \
+  -fomit-frame-pointer -fno-stack-protector \
   ${readable:+-I"$readable"} -c "$src" -o "$obj"
  objs="$objs $obj"
 }
 
-if [ -z "${no_reconstructed:-}" ]; then
- if [ -n "${asm_order:-}" ]; then
-  for name in $asm_order; do
-   compile_asm "$dir/reconstructed/$name.S"
-  done
- else
-  for src in "$dir"/reconstructed/*.S; do
-   [ -f "$src" ] || continue
-   name=$(basename "${src%.S}")
-   case " ${skip_reconstructed:-} " in
-    *" $name "*) continue ;;
-   esac
-   compile_asm "$src"
+if [ -n "${source_order:-}" ]; then
+ for name in $source_order; do
+  case "$name" in
+   *.S) compile_asm "$dir/$name" ;;
+   *.c) compile_c "$dir/$name" ;;
+   *) echo "error: unsupported EN751221 DDR source: $name" >&2; exit 1 ;;
+  esac
+ done
+else
+ if [ -z "${no_reconstructed:-}" ]; then
+  if [ -n "${asm_order:-}" ]; then
+   for name in $asm_order; do
+    compile_asm "$dir/reconstructed/$name.S"
+   done
+  else
+   for src in "$dir"/reconstructed/*.S; do
+    [ -f "$src" ] || continue
+    name=$(basename "${src%.S}")
+    case " ${skip_reconstructed:-} " in
+     *" $name "*) continue ;;
+    esac
+    compile_asm "$src"
+   done
+  fi
+ fi
+ for src in "$dir"/*.S; do
+  compile_asm "$src"
+ done
+ if [ -n "${readable:-}" ]; then
+  for src in "$readable"/*.c; do
+   compile_c "$src"
   done
  fi
-fi
-
-for src in "$dir"/*.S; do
- compile_asm "$src"
-done
-
-if [ -n "${readable:-}" ]; then
- for src in "$readable"/*.c; do
-  compile_c "$src"
- done
 fi
 
 if [ -f "$dir/glue.c" ]; then
@@ -139,8 +154,3 @@ fi
 "$ld" "$endian" -m "$emulation" -T "$dir/ddr.lds" -Map "$build/ddr.map" -o "$build/ddr.elf" $objs
 "$objcopy" -O binary "$build/ddr.elf" "$out.tmp"
 mv -f "$out.tmp" "$out"
-
-if [ -n "${ddr_variant:-}" ]; then
- printf 'EN7528 DDR: %s (%s bytes)\n' "$ddr_variant" "$(wc -c < "$out")" >&2
-fi
-printf '%s\n' "$out"

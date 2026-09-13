@@ -72,11 +72,19 @@ static int sf_op(u32 op, u32 len)
 	u32 val = ((op & OP_CMD_MASK) << OP_SHIFT) | (len & OP_LEN_MASK);
 	int ret;
 
+	/*
+	 * Order matches the vendor's move_data.S (send_opfifo_write_cmd):
+	 * WDATA is staged *before* the FULL check, not after. Checking FULL
+	 * first (as this used to) hung on real EN751221 hardware -- OPFIFO
+	 * _FULL apparently never deasserts until something has been written
+	 * to WDATA.
+	 */
+	__raw_writel(val, sf_reg(SF_MANUAL_OPFIFO_WDATA));
+
 	ret = sf_wait_eq(SF_MANUAL_OPFIFO_FULL, 0);
 	if (ret)
 		return ret;
 
-	__raw_writel(val, sf_reg(SF_MANUAL_OPFIFO_WDATA));
 	__raw_writel(1, sf_reg(SF_MANUAL_OPFIFO_WR));
 
 	return sf_wait_eq(SF_MANUAL_OPFIFO_EMPTY, 1);
@@ -326,7 +334,9 @@ int econet_sfc_read(u32 offset, void *dst, size_t len)
 	u32 strap = __raw_readl(sf_reg(SF_STRAP));
 	u32 page_size = NAND_PAGE_SIZE;
 #ifdef ECONET_STANDALONE_BOOT
+#ifndef ECONET_NAND_PAGE_SHIFT
 	u32 shift;
+#endif
 #endif
 	u8 *buf = dst;
 	int ret;
@@ -337,11 +347,15 @@ int econet_sfc_read(u32 offset, void *dst, size_t len)
 
 	/* move_data detects the NAND page shift during cold boot. */
 #ifdef ECONET_STANDALONE_BOOT
+#ifdef ECONET_NAND_PAGE_SHIFT
+	page_size = 1U << ECONET_NAND_PAGE_SHIFT;
+#else
 	shift = __raw_readl((void *)0xbfa40020);
 
 	if (shift < 11 || shift > 13)
 		return -EINVAL;
 	page_size = 1U << shift;
+#endif
 #endif
 	while (len) {
 		u32 page = offset / page_size;

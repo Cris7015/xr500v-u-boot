@@ -2,6 +2,7 @@
 
 #include <compiler.h>
 #include <linux/byteorder/generic.h>
+#include <linux/kernel.h>
 #include <linux/types.h>
 #include <asm/io.h>
 #include <mach/boot.h>
@@ -104,6 +105,51 @@ static void tpl_en7528_copy_ddr_xip(void)
 }
 #endif
 
+#ifdef CONFIG_TARGET_EN751221
+/*
+ * EN751221 DRAM does not tolerate byte-wide stores during SPL load: the
+ * chainloader work on this SoC showed that byte-store writes to DRAM get
+ * corrupted.  Stage each chunk through FE SRAM and flush it out with
+ * aligned 32-bit stores instead.
+ */
+#define EN751221_TPL_COPY_CHUNK	0x400
+
+static int tpl_en751221_read_dram(u32 offset, void *dst, u32 len)
+{
+	u8 *scratch = (u8 *)ECONET_DDR_BLOB_ADDR;
+	u8 *out = dst;
+
+	if ((uintptr_t)out & 3)
+		return -1;
+
+	while (len) {
+		u32 chunk = min_t(u32, len, EN751221_TPL_COPY_CHUNK);
+		u32 padded = ALIGN(chunk, 4);
+		u32 i;
+		int ret;
+
+		ret = econet_sfc_read(offset, scratch, chunk);
+		if (ret)
+			return ret;
+
+		for (i = chunk; i < padded; i++)
+			scratch[i] = 0;
+
+		for (i = 0; i < padded; i += 4)
+			*(volatile u32 *)(out + i) =
+				*(u32 *)(scratch + i);
+
+		__asm__ volatile("sync" : : : "memory");
+
+		offset += chunk;
+		out += chunk;
+		len -= chunk;
+	}
+
+	return 0;
+}
+#endif
+
 void __noreturn tpl_main(void)
 {
 	struct econet_legacy_header *hdr =
@@ -168,9 +214,14 @@ void __noreturn tpl_main(void)
 	    load + size < load)
 		tpl_hang('L');
 
+#ifdef CONFIG_TARGET_EN751221
+	ret = tpl_en751221_read_dram(ECONET_SPL_IMAGE_OFFSET + IH_HDR_SIZE,
+				      (void *)load, size);
+#else
 	/* Write through KSEG1 so no dirty cache lines hide the SPL image. */
 	ret = econet_sfc_read(ECONET_SPL_IMAGE_OFFSET + IH_HDR_SIZE,
 			      (void *)(load | 0x20000000), size);
+#endif
 	if (ret)
 		tpl_hang('S');
 

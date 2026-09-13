@@ -13,7 +13,7 @@ MINFO = 0xff00
 
 
 def pack(stages, symbols, uboot, soc, load, minfo=None):
-    endian = 'big' if soc == 'en751627' else 'little'
+    endian = 'big' if soc in ('en751221', 'en751627') else 'little'
     if not 0x81000000 <= load < 0x82000000:
         raise ValueError('load address must be in 0x81000000..0x81ffffff')
     if len(stages) >= MINFO or len(stages) < 0x60:
@@ -33,8 +33,16 @@ def pack(stages, symbols, uboot, soc, load, minfo=None):
         raise ValueError('payload exceeds the minimum 32 MiB DRAM window')
     image = bytearray(b'\xff' * LIMIT)
     image[:len(stages)] = stages
-    # Reserved header fields must be deterministic, not arbitrary padding.
-    image[8:0x60] = bytes(0x58)
+    if soc == 'en751221':
+        # This SDK revision enters at +0x48.  The tcboot dumped from the
+        # target enters at +0x40; +0x40..+0x47 are reserved NOPs, so make
+        # the reset vector match the target and fall through to +0x48.
+        if int.from_bytes(image[:4], 'big') != 0x0bf00012 or image[0x40:0x48] != bytes(8):
+            raise ValueError('unexpected EN751221 SDK reset/header layout')
+        image[:4] = (0x0bf00010).to_bytes(4, 'big')
+    else:
+        # Reserved header fields must be deterministic, not arbitrary padding.
+        image[8:0x60] = bytes(0x58)
     def put(offset, value):
         image[offset:offset+4] = value.to_bytes(4, endian)
     def interval(name):
@@ -48,21 +56,23 @@ def pack(stages, symbols, uboot, soc, load, minfo=None):
     ddr = interval('spram')
     if move[1] >= 0x800 or not move[1] <= boot2[0] < boot2[1] <= loader[0] < loader[1] <= ddr[0]:
         raise ValueError('invalid first-page placement or overlapping stages')
-    put(8, PAYLOAD)
+    if soc != 'en751221':
+        put(8, PAYLOAD)
     image[12:16] = b'6578'
     put(0x10, loader[0])
     put(0x14, loader[1])
     put(0x18, PAYLOAD)
     put(0x1c, PAYLOAD + len(uboot))
-    put(0x28, 0x00040010)  # SDK controller ECC: 4 bits, 16 spare bytes/sector
-    put(0x30, 0x9fa30000)
-    put(0x34, 0x80000000)
-    if soc == 'en7528':
-        put(0x40, 0x035a3c96)  # SDK efuse clock width = 3
-    put(0x50, boot2[0])
-    put(0x54, boot2[1])
-    put(0x58, ddr[0])
-    put(0x5c, ddr[1])
+    if soc != 'en751221':
+        put(0x28, 0x00040010)  # SDK controller ECC: 4 bits, 16 spare bytes/sector
+        put(0x30, 0x9fa30000)
+        put(0x34, 0x80000000)
+        if soc == 'en7528':
+            put(0x40, 0x035a3c96)  # SDK efuse clock width = 3
+        put(0x50, boot2[0])
+        put(0x54, boot2[1])
+        put(0x58, ddr[0])
+        put(0x5c, ddr[1])
     if soc == 'en751627':
         # The SDK ELF entry is +0x280; boot2 enters the raw image at +0.
         # Preserve the original payload, adding only a jump in its zero prefix.
@@ -84,7 +94,7 @@ def pack(stages, symbols, uboot, soc, load, minfo=None):
 
 def main():
     p = argparse.ArgumentParser(description=__doc__)
-    p.add_argument('--soc', choices=('en751627', 'en7528'), required=True)
+    p.add_argument('--soc', choices=('en751221', 'en751627', 'en7528'), required=True)
     for name in ('stages', 'symbols', 'uboot', 'output'):
         p.add_argument('--'+name, type=Path, required=True)
     p.add_argument('--load', type=lambda s: int(s, 0), required=True)
