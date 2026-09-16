@@ -16,11 +16,15 @@
 #include <dt-bindings/reset/airoha,en7523-reset.h>
 #include <dt-bindings/reset/airoha,en7581-reset.h>
 #include <dt-bindings/reset/airoha,an7583-reset.h>
+#include <dt-bindings/reset/econet,en751221-scu.h>
+#include <dt-bindings/reset/econet,en7528-scu.h>
 
 #define RST_NR_PER_BANK			32
 
 #define REG_RESET_CONTROL2		0x830
 #define REG_RESET_CONTROL1		0x834
+#define EN751221_REG_RST_DMT		0x084
+#define EN751221_REG_RST_USB		0x0ec
 
 struct airoha_reset_priv {
 	const u16 *bank_ofs;
@@ -32,6 +36,13 @@ struct airoha_reset_priv {
 static const u16 en7581_rst_ofs[] = {
 	REG_RESET_CONTROL2,
 	REG_RESET_CONTROL1,
+};
+
+static const u16 en751221_rst_ofs[] = {
+	REG_RESET_CONTROL2,
+	REG_RESET_CONTROL1,
+	EN751221_REG_RST_DMT,
+	EN751221_REG_RST_USB,
 };
 
 static const u16 en7523_rst_map[] = {
@@ -79,6 +90,58 @@ static const u16 en7523_rst_map[] = {
 	[EN7523_PCIE1_RST]		= RST_NR_PER_BANK + 27,
 	[EN7523_PCIE_HB_RST]		= RST_NR_PER_BANK + 29,
 	[EN7523_XPON_MAC_RST]		= RST_NR_PER_BANK + 31,
+};
+
+static const u16 en751221_rst_map[] = {
+	/* RST_CTRL2 */
+	[EN751221_XPON_PHY_RST]		= 0,
+	[EN751221_GFAST_RST]		= 1,
+	[EN751221_CPU_TIMER2_RST]	= 2,
+	[EN751221_UART3_RST]		= 3,
+	[EN751221_UART4_RST]		= 4,
+	[EN751221_UART5_RST]		= 5,
+	[EN751221_I2C2_RST]		= 6,
+	[EN751221_XSI_MAC_RST]		= 7,
+	[EN751221_XSI_PHY_RST]		= 8,
+
+	/* RST_CTRL1 */
+	[EN751221_PCM1_ZSI_ISI_RST]	= RST_NR_PER_BANK + 0,
+	[EN751221_FE_QDMA1_RST]		= RST_NR_PER_BANK + 1,
+	[EN751221_FE_QDMA2_RST]		= RST_NR_PER_BANK + 2,
+	[EN751221_FE_UNZIP_RST]		= RST_NR_PER_BANK + 3,
+	[EN751221_PCM2_RST]		= RST_NR_PER_BANK + 4,
+	[EN751221_PTM_MAC_RST]		= RST_NR_PER_BANK + 5,
+	[EN751221_CRYPTO_RST]		= RST_NR_PER_BANK + 6,
+	[EN751221_SAR_RST]		= RST_NR_PER_BANK + 7,
+	[EN751221_TIMER_RST]		= RST_NR_PER_BANK + 8,
+	[EN751221_INTC_RST]		= RST_NR_PER_BANK + 9,
+	[EN751221_BONDING_RST]		= RST_NR_PER_BANK + 10,
+	[EN751221_PCM1_RST]		= RST_NR_PER_BANK + 11,
+	[EN751221_UART_RST]		= RST_NR_PER_BANK + 12,
+	[EN751221_GPIO_RST]		= RST_NR_PER_BANK + 13,
+	[EN751221_GDMA_RST]		= RST_NR_PER_BANK + 14,
+	[EN751221_I2C_MASTER_RST]	= RST_NR_PER_BANK + 16,
+	[EN751221_PCM2_ZSI_ISI_RST]	= RST_NR_PER_BANK + 17,
+	[EN751221_SFC_RST]		= RST_NR_PER_BANK + 18,
+	[EN751221_UART2_RST]		= RST_NR_PER_BANK + 19,
+	[EN751221_GDMP_RST]		= RST_NR_PER_BANK + 20,
+	[EN751221_FE_RST]		= RST_NR_PER_BANK + 21,
+	[EN751221_USB_HOST_P0_RST]	= RST_NR_PER_BANK + 22,
+	[EN751221_GSW_RST]		= RST_NR_PER_BANK + 23,
+	[EN751221_SFC2_PCM_RST]		= RST_NR_PER_BANK + 25,
+	[EN751221_PCIE0_RST]		= RST_NR_PER_BANK + 26,
+	[EN751221_PCIE1_RST]		= RST_NR_PER_BANK + 27,
+	[EN751221_CPU_TIMER_RST]	= RST_NR_PER_BANK + 28,
+	[EN751221_PCIE_HB_RST]		= RST_NR_PER_BANK + 29,
+	[EN751221_SIMIF_RST]		= RST_NR_PER_BANK + 30,
+	[EN751221_XPON_MAC_RST]		= RST_NR_PER_BANK + 31,
+
+	/* RST_DMT */
+	[EN751221_DMT_RST]		= 2 * RST_NR_PER_BANK + 0,
+
+	/* RST_USB */
+	[EN751221_USB_PHY_P0_RST]	= 3 * RST_NR_PER_BANK + 6,
+	[EN751221_USB_PHY_P1_RST]	= 3 * RST_NR_PER_BANK + 7,
 };
 
 static const u16 en7581_rst_map[] = {
@@ -255,7 +318,8 @@ static struct reset_ops airoha_reset_ops = {
 	.rst_status = airoha_reset_status,
 };
 
-static int reset_init(struct udevice *dev, const u16 *rst_map, int num_rsts)
+static int reset_init(struct udevice *dev, const u16 *rst_map,
+		      const u16 *rst_ofs, int num_rsts)
 {
 	struct airoha_reset_priv *priv = dev_get_priv(dev);
 
@@ -263,7 +327,7 @@ static int reset_init(struct udevice *dev, const u16 *rst_map, int num_rsts)
 	if (IS_ERR(priv->map))
 		return PTR_ERR(priv->map);
 
-	priv->bank_ofs = en7581_rst_ofs;
+	priv->bank_ofs = rst_ofs;
 	priv->idx_map = rst_map;
 	priv->num_rsts = num_rsts;
 
@@ -272,22 +336,26 @@ static int reset_init(struct udevice *dev, const u16 *rst_map, int num_rsts)
 
 static int airoha_reset_probe(struct udevice *dev)
 {
-	if (ofnode_device_is_compatible(dev_ofnode(dev),
-					"airoha,en7528-scu") ||
-	    ofnode_device_is_compatible(dev_ofnode(dev),
-					"airoha,en7523-scu"))
-		return reset_init(dev, en7523_rst_map,
+	ofnode node = dev_ofnode(dev);
+
+	if (ofnode_device_is_compatible(node, "airoha,en751221-scu") ||
+	    ofnode_device_is_compatible(node, "econet,en751221-scu") ||
+	    ofnode_device_is_compatible(node, "airoha,en7528-scu") ||
+	    ofnode_device_is_compatible(node, "econet,en7528-scu"))
+		return reset_init(dev, en751221_rst_map, en751221_rst_ofs,
+				  ARRAY_SIZE(en751221_rst_map));
+
+	if (ofnode_device_is_compatible(node, "airoha,en7523-scu"))
+		return reset_init(dev, en7523_rst_map, en7581_rst_ofs,
 				  ARRAY_SIZE(en7523_rst_map));
 
-	if (ofnode_device_is_compatible(dev_ofnode(dev),
-					"airoha,en7581-scu"))
-		return reset_init(dev, en7581_rst_map,
+	if (ofnode_device_is_compatible(node, "airoha,en7581-scu"))
+		return reset_init(dev, en7581_rst_map, en7581_rst_ofs,
 				  ARRAY_SIZE(en7581_rst_map));
 
-	if (ofnode_device_is_compatible(dev_ofnode(dev),
-					"airoha,an7583-scu"))
-		return reset_init(dev, an7583_rst_map,
-				 ARRAY_SIZE(an7583_rst_map));
+	if (ofnode_device_is_compatible(node, "airoha,an7583-scu"))
+		return reset_init(dev, an7583_rst_map, en7581_rst_ofs,
+				  ARRAY_SIZE(an7583_rst_map));
 
 	return -ENODEV;
 }
