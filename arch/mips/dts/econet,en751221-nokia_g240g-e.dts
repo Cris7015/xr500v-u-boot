@@ -12,7 +12,7 @@
 	};
 
 	keys {
-		compatible = "gpio-keys";
+		compatible = "gpio-keys-polled";
 
 		reset {
 			label = "reset";

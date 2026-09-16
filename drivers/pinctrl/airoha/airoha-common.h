@@ -84,6 +84,12 @@ struct airoha_pinctrl_conf {
 	struct airoha_pinctrl_reg reg;
 };
 
+struct airoha_pinctrl_gpio_mux {
+	u32 pin;
+	enum airoha_pinctrl_mux_func mux;
+	struct airoha_pinctrl_reg reg;
+};
+
 struct airoha_pinctrl_gpiochip {
 	/* gpio */
 	const u32 *data;
@@ -134,6 +140,9 @@ struct airoha_pinctrl_match_data {
 	const struct airoha_pinctrl_func *funcs;
 	const unsigned int num_funcs;
 	const struct airoha_pinctrl_confs_info confs_info[AIROHA_PINCTRL_CONFS_MAX];
+	const struct airoha_pinctrl_gpio_mux *gpio_muxes;
+	const unsigned int num_gpio_muxes;
+	const unsigned int drive_strength_step_ma;
 };
 
 extern const struct pinctrl_ops airoha_pinctrl_ops;

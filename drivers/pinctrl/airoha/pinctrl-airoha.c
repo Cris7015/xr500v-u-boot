@@ -332,13 +332,15 @@ static int airoha_pinconf_get(struct airoha_pinctrl *pinctrl,
 		break;
 	}
 	case PIN_CONFIG_DRIVE_STRENGTH: {
-		u32 e2, e4;
+		u32 e2, e4, level;
+		u32 step = pinctrl->data->drive_strength_step_ma ?: 2;
 
 		if (airoha_pinctrl_get_drive_e2_conf(pinctrl, pin, &e2) ||
 		    airoha_pinctrl_get_drive_e4_conf(pinctrl, pin, &e4))
 			return -EINVAL;
 
-		arg = e4 << 1 | e2;
+		level = e4 << 1 | e2;
+		arg = (level + 1) * step;
 		break;
 	}
 	case PIN_CONFIG_DRIVE_OPEN_DRAIN:
@@ -420,24 +422,19 @@ static int airoha_pinconf_set(struct airoha_pinctrl *pinctrl,
 			break;
 
 		case PIN_CONFIG_DRIVE_STRENGTH: {
-			u32 e2 = 0, e4 = 0;
+			u32 e2, e4, level;
+			u32 step = pinctrl->data->drive_strength_step_ma ?: 2;
 
-			switch (arg) {
-			case MTK_DRIVE_2mA:
-				break;
-			case MTK_DRIVE_4mA:
-				e2 = 1;
-				break;
-			case MTK_DRIVE_6mA:
-				e4 = 1;
-				break;
-			case MTK_DRIVE_8mA:
-				e2 = 1;
-				e4 = 1;
-				break;
-			default:
+			if (!arg || arg % step)
 				return -EINVAL;
-			}
+
+			level = arg / step;
+			if (level < 1 || level > 4)
+				return -EINVAL;
+
+			level--;
+			e2 = level & 1;
+			e4 = (level >> 1) & 1;
 
 			err = airoha_pinctrl_set_drive_e2_conf(pinctrl, pin, e2);
 			if (err)
@@ -566,11 +563,41 @@ static int airoha_pinctrl_gpio_get_direction(struct udevice *dev,
 	return airoha_gpio_get_direction(dev_get_priv(dev->parent), gpio);
 }
 
+static int airoha_gpio_request_enable(struct airoha_pinctrl *pinctrl,
+				      unsigned int gpio)
+{
+	const struct airoha_pinctrl_match_data *data = pinctrl->data;
+	int i, err;
+
+	for (i = 0; i < data->num_gpio_muxes; i++) {
+		const struct airoha_pinctrl_gpio_mux *mux = &data->gpio_muxes[i];
+		struct regmap *map;
+
+		if (mux->pin != gpio)
+			continue;
+
+		map = mux->mux == AIROHA_FUNC_MUX ?
+			pinctrl->chip_scu : pinctrl->regmap;
+		err = regmap_update_bits(map, mux->reg.offset,
+					 mux->reg.mask, 0);
+		if (err)
+			return err;
+	}
+
+	return 0;
+}
+
 static int airoha_pinctrl_gpio_direction_input(struct udevice *dev,
 					       unsigned int gpio)
 {
-	return airoha_gpio_set_direction(dev_get_priv(dev->parent),
-					 gpio, true);
+	struct airoha_pinctrl *pinctrl = dev_get_priv(dev->parent);
+	int err;
+
+	err = airoha_gpio_request_enable(pinctrl, gpio);
+	if (err)
+		return err;
+
+	return airoha_gpio_set_direction(pinctrl, gpio, true);
 }
 
 static int airoha_pinctrl_gpio_direction_output(struct udevice *dev,
@@ -578,6 +605,10 @@ static int airoha_pinctrl_gpio_direction_output(struct udevice *dev,
 {
 	struct airoha_pinctrl *pinctrl = dev_get_priv(dev->parent);
 	int err;
+
+	err = airoha_gpio_request_enable(pinctrl, gpio);
+	if (err)
+		return err;
 
 	err = airoha_gpio_set_direction(pinctrl, gpio, false);
 	if (err)

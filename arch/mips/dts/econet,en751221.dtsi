@@ -4,7 +4,7 @@
 #include <dt-bindings/interrupt-controller/irq.h>
 #include <dt-bindings/gpio/gpio.h>
 #include <dt-bindings/leds/common.h>
-#include <dt-bindings/clock/en7523-clk.h>
+#include <dt-bindings/clock/econet,en751221-scu.h>
 #include <dt-bindings/reset/econet,en751221-scu.h>
 
 / {
@@ -58,12 +58,12 @@
 			reg = <0x1fbf0200 0xc0>;
 
 			pinctrl: pinctrl {
-				compatible = "airoha,en751221-pinctrl", "econet,en751221-pinctrl";
+				compatible = "airoha,en751221-pinctrl";
 				airoha,chip-scu = <&chip_scu>;
 
-			gpio-controller;
+				gpio-controller;
 				#gpio-cells = <2>;
-				gpio-ranges = <&pinctrl 0 13 29>;
+				gpio-ranges = <&pinctrl 0 13 31>;
 
 				interrupt-controller;
 				#interrupt-cells = <2>;
@@ -73,16 +73,23 @@
 		uart0: serial@1fbf0000 {
 			compatible = "econet,en751221-uart";
 			reg = <0x1fbf0000 0x30>;
+
 			clock-frequency = <20000000>;
 			current-speed = <115200>;
+
 			status = "disabled";
 		};
 
 		spi0: spi@1fa10000 {
-			compatible = "airoha,en7523-spi";
+			compatible = "airoha,en751221-spi", "airoha,en7523-spi";
 			reg = <0x1fa10000 0x140>;
+
+			clocks = <&scuclk EN751221_CLK_SPI>;
+			clock-names = "spi";
+
 			#address-cells = <1>;
 			#size-cells = <0>;
+
 			status = "disabled";
 		};
 

@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: GPL-2.0-only
 
 config PINCTRL_AIROHA
-	depends on ARCH_AIROHA
+	depends on ARCH_AIROHA || ARCH_ECONET
 	select PINCTRL_FULL
 	select PINCTRL_GENERIC
 	select PINMUX
@@ -9,6 +9,22 @@ config PINCTRL_AIROHA
 	select REGMAP
 	select SYSCON
 	bool
+
+config PINCTRL_AIROHA_EN751221
+	bool "EcoNet EN751221 pin controller and gpio driver"
+	depends on TARGET_EN751221
+	select PINCTRL_AIROHA
+	help
+	  Enable pin multiplexing, pin configuration and GPIO support for
+	  EcoNet EN751221 family SoCs.
+
+config PINCTRL_AIROHA_EN7528
+	bool "EcoNet EN7528 pin controller and gpio driver"
+	depends on TARGET_EN7528
+	select PINCTRL_AIROHA
+	help
+	  Enable pin multiplexing, pin configuration and GPIO support for
+	  EcoNet EN7528 family SoCs.
 
 config PINCTRL_AIROHA_EN7523
 	bool "Airoha EN7523 pin controller and gpio driver"
