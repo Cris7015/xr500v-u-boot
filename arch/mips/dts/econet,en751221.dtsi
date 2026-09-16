@@ -81,7 +81,7 @@
 		};
 
 		spi0: spi@1fa10000 {
-			compatible = "airoha,en751221-spi", "airoha,en7523-spi";
+			compatible = "airoha,en751221-spi";
 			reg = <0x1fa10000 0x140>;
 
 			clocks = <&scuclk EN751221_CLK_SPI>;

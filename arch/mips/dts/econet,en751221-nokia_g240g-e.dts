@@ -122,13 +122,15 @@
 	status = "okay";
 };
 
-
 &spi0 {
 	status = "okay";
 
 	nand: nand@0 {
 		compatible = "spi-nand";
 		reg = <0>;
+		spi-max-frequency = <50000000>;
+		spi-tx-bus-width = <1>;
+		spi-rx-bus-width = <2>;
 
 		partitions {
 			compatible = "fixed-partitions";

@@ -15,9 +15,92 @@
 	chosen {
 		stdout-path = "serial0:115200n8";
 	};
+
+	keys {
+		compatible = "gpio-keys-polled";
+		poll-interval = <100>;
+
+		reset {
+			label = "reset";
+			linux,code = <KEY_RESTART>;
+			gpios = <&pinctrl 0 GPIO_ACTIVE_LOW>;
+			debounce-interval = <60>;
+		};
+
+		wps {
+			label = "wps";
+			linux,code = <KEY_WPS_BUTTON>;
+			gpios = <&pinctrl 30 GPIO_ACTIVE_LOW>;
+			debounce-interval = <60>;
+		};
+	};
+
+	leds {
+		compatible = "gpio-leds";
+
+		// Wireless
+		led@5 {
+			color = <LED_COLOR_ID_GREEN>;
+			function = LED_FUNCTION_WLAN;
+			function-enumerator = <5>;
+			gpios = <&pinctrl 5 GPIO_ACTIVE_LOW>;
+		};
+
+		// Internet
+		led@25 {
+			color = <LED_COLOR_ID_GREEN>;
+			function = LED_FUNCTION_WAN_ONLINE;
+			function-enumerator = <25>;
+			gpios = <&pinctrl 25 GPIO_ACTIVE_LOW>;
+		};
+
+		// FXS1
+		led@27 {
+			color = <LED_COLOR_ID_GREEN>;
+			function = LED_FUNCTION_VOIP;
+			function-enumerator = <27>;
+			gpios = <&pinctrl 27 GPIO_ACTIVE_LOW>;
+		};
+
+		// LOS
+		led@32 {
+			color = <LED_COLOR_ID_RED>;
+			function = LED_FUNCTION_XPON_LOS;
+			function-enumerator = <32>;
+			gpios = <&pinctrl 32 GPIO_ACTIVE_LOW>;
+		};
+
+		// xPON
+		led@34 {
+			color = <LED_COLOR_ID_GREEN>;
+			function = LED_FUNCTION_XPON;
+			function-enumerator = <34>;
+			gpios = <&pinctrl 34 GPIO_ACTIVE_LOW>;
+		};
+
+		// Power
+		led_power: led@36 {
+			color = <LED_COLOR_ID_GREEN>;
+			function = LED_FUNCTION_POWER;
+			function-enumerator = <36>;
+			gpios = <&pinctrl 36 GPIO_ACTIVE_HIGH>;
+		};
+	};
 };
 
 &uart0 {
+	status = "okay";
+};
+
+&eth {
+	status = "okay";
+};
+
+&gdm1 {
+	status = "okay";
+};
+
+&switch {
 	status = "okay";
 };
 
@@ -37,34 +120,19 @@
 			#size-cells = <1>;
 
 			partition@0 {
-				label = "boot";
-				reg = <0x00000000 0x00040000>;
-				read-only;
+				label = "u-boot";
+				reg = <0x000000 0x100000>;
 			};
 
-			partition@40000 {
-				label = "romfile";
-				reg = <0x00040000 0x00010000>;
-			};
-
-			partition@50000 {
-				label = "kernel";
-				reg = <0x00050000 0x00220000>;
-			};
-
-			partition@270000 {
-				label = "rootfs";
-				reg = <0x00270000 0x00cd0000>;
+			partition@100000 {
+				label = "firmware";
+				reg = <0x100000 0xe40000>;
 			};
 
 			partition@f40000 {
 				label = "misc";
-				reg = <0x00f40000 0x000c0000>;
+				reg = <0xf40000 0x0c0000>;
 			};
 		};
 	};
 };
-
-&eth { status = "okay"; };
-&gdm1 { status = "okay"; };
-&switch { status = "okay"; };

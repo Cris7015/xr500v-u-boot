@@ -1,11 +1,11 @@
 loadaddr=0x89400000
 ipaddr=192.168.1.1
 serverip=192.168.1.10
-bootled_pwr=green:power-36
+bootled_pwr=green:status-6
 
 bootconf=config-1
-bootfile=openwrt-airoha-en7528-tplink_xc220-g3v-initramfs-kernel.bin
-bootloaderfile=openwrt-airoha-en7528-tplink_xc220-g3v-uboot-bootloader.bin
+bootfile=openwrt-airoha-en751221-nokia_g240g-e-initramfs-kernel.bin
+bootloaderfile=openwrt-airoha-en751221-nokia_g240g-e-uboot-bootloader.bin
 
 boot_tftp=tftpboot $loadaddr $bootfile && bootm $loadaddr#$bootconf
 ubi_read_openwrt=ubi read $loadaddr fit && iminfo $loadaddr
@@ -18,11 +18,13 @@ upgrade_uboot=\
   mtd erase u-boot && mtd write u-boot 0x89400000
 
 format_ubi_part=\
-  mtd read nor0 0x89500000 0xf40000 0xc0000 && \
+  mtd read spi-nand0 0x89500000 0x6e40000 0x40000 && \
+  mtd read spi-nand0 0x89540000 0x6d80000 0x40000 && \
   mtd erase ubi && ubi part ubi && \
   ubi create ubootenv 0x1f000 static && \
   ubi create ubootenv2 0x1f000 static && \
-  ubi create art 0xc0000 static && ubi write 0x89500000 art 0xc0000 && \
+  ubi create ri 0x40000 static && ubi write 0x89500000 ri 0x40000 && \
+  ubi create bosa 0x40000 static && ubi write 0x89540000 bosa 0x40000 && \
   run upgrade_uboot
 
 bootcmd=run boot_ubi
