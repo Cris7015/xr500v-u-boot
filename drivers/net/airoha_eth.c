@@ -638,7 +638,6 @@ struct airoha_eth_soc_data {
 	bool gen1;
 	bool legacy_qdma;
 	bool direct_reset;
-	bool late_probe;
 	bool dscp_byte_swap;
 	bool switch_mdio;
 	int num_xsi_rsts;
@@ -2804,8 +2803,7 @@ static int airoha_eth_probe(struct udevice *dev)
 						sizeof(struct reset_ctl), GFP_KERNEL);
 		if (!eth->rsts.resets)
 			return -ENOMEM;
-		eth->rsts.count = data->version == 0x7528 ? 3 :
-				  AIROHA_MAX_NUM_RSTS;
+		eth->rsts.count = AIROHA_MAX_NUM_RSTS;
 
 		if (data->num_xsi_rsts) {
 			eth->xsi_rsts.resets = devm_kcalloc(dev, data->num_xsi_rsts,
@@ -2827,11 +2825,10 @@ static int airoha_eth_probe(struct udevice *dev)
 		if (ret)
 			return ret;
 
-		if (data->version != 0x7528) {
-			ret = reset_get_by_name(dev, "switch", &eth->rsts.resets[3]);
-			if (ret)
-				return ret;
-		}
+		ret = reset_get_by_name(dev, "switch",
+					&eth->rsts.resets[3]);
+		if (ret)
+			return ret;
 
 		for (i = 0; i < data->num_xsi_rsts; i++) {
 			ret = reset_get_by_name(dev, data->xsi_rsts_names[i],
@@ -3556,17 +3553,11 @@ static int arht_eth_write_hwaddr(struct udevice *dev)
 
 static int airoha_eth_bind(struct udevice *dev)
 {
-	const struct airoha_eth_soc_data *data;
-
-	data = (const void *)dev_get_driver_data(dev);
-
 	/*
-	 * Force probe on SoCs that can safely initialize the parent during DM
-	 * bring-up.  MIPS EN75xx boards keep Ethernet in board_late_init() so a
-	 * reset/QDMA failure is still visible on the serial console.
+	 * Force Probe as we set the Main ETH driver as misc
+	 * to register multiple eth port for each GDM
 	 */
-	if (!data || !data->late_probe)
-		dev_or_flags(dev, DM_FLAG_PROBE_AFTER_BIND);
+	dev_or_flags(dev, DM_FLAG_PROBE_AFTER_BIND);
 
 	return 0;
 }
@@ -3585,7 +3576,6 @@ static const struct airoha_eth_soc_data en751221_data = {
 	.gen1 = true,
 	.legacy_qdma = true,
 	.direct_reset = true,
-	.late_probe = true,
 	.dscp_byte_swap = true,
 	.switch_mdio = true,
 	.switch_compatible = "econet,en751221-switch",
@@ -3596,7 +3586,6 @@ static const struct airoha_eth_soc_data en751627_data = {
 	.version = 0x7528,
 	.gen1 = true,
 	.legacy_qdma = true,
-	.late_probe = true,
 	.dscp_byte_swap = true,
 	.switch_compatible = "airoha,en751627-switch",
 };
@@ -3605,7 +3594,7 @@ static const struct airoha_eth_soc_data en7528_data = {
 	.version = 0x7528,
 	.gen1 = true,
 	.legacy_qdma = true,
-	.late_probe = true,
+	.switch_mdio = true,
 	.switch_compatible = "airoha,en7528-switch",
 };
 
@@ -3667,7 +3656,7 @@ U_BOOT_DRIVER(airoha_eth_port) = {
 
 U_BOOT_DRIVER(airoha_eth) = {
 	.name = "airoha-eth",
-	.id = UCLASS_SIMPLE_BUS,
+	.id = UCLASS_MISC,
 	.of_match = airoha_eth_ids,
 	.probe = airoha_eth_probe,
 	.bind = airoha_eth_bind,

@@ -83,7 +83,8 @@
 			color = <LED_COLOR_ID_GREEN>;
 			function = LED_FUNCTION_POWER;
 			function-enumerator = <36>;
-			gpios = <&pinctrl 36 GPIO_ACTIVE_HIGH>;
+			gpios = <&pinctrl 36 GPIO_ACTIVE_LOW>;
+			default-state = "on";
 		};
 	};
 };

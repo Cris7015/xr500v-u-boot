@@ -107,9 +107,11 @@
 			         <&scuclk EN751221_FE_QDMA2_RST>,
 			         <&scuclk EN751221_GDMA_RST>,
 			         <&scuclk EN751221_FE_UNZIP_RST>,
-			         <&scuclk EN751221_GDMP_RST>;
+			         <&scuclk EN751221_GDMP_RST>,
+			         <&scuclk EN751221_GSW_RST>;
 			reset-names = "fe", "pdma", "qdma",
-			              "gdma", "fe-unzip", "gdmp";
+			              "gdma", "fe-unzip", "gdmp",
+			              "switch";
 
 			#address-cells = <1>;
 			#size-cells = <0>;
@@ -131,7 +133,6 @@
 		switch0: switch@1fb58000 {
 			compatible = "econet,en751221-switch";
 			reg = <0x1fb58000 0x8000>;
-			resets = <&scuclk EN751221_GSW_RST>;
 
 			status = "disabled";
 

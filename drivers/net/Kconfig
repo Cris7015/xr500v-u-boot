@@ -130,6 +130,7 @@ source "drivers/net/airoha/Kconfig"
 config AIROHA_ETH
 	bool "Airoha Ethernet QDMA Driver"
 	depends on ARCH_AIROHA || ARCH_ECONET
+	select MISC
 	select PHYLIB
 	select DM_MDIO
 	select DEVRES
