@@ -58,9 +58,16 @@ ulong notrace get_tbclk(void)
 	u32 val = __raw_readl((void __iomem *)EN7512_REG_SAVE_INFO);
 	u32 clk = (val & EN7512_SAVE_CLK_MASK) >> EN7512_SAVE_CLK_SHIFT;
 
-	/* CP0 Count advances at half the system clock on the MIPS34K. */
+	/*
+	 * TCBoot stores the CPU clock in units of 4 MHz (0xe1 = 225 for the
+	 * 900 MHz EN7526G) and CP0 Count advances at half the CPU clock on the
+	 * MIPS 34K, so the timebase is clk * 2 MHz.  With the old * 500000 a
+	 * "sleep 5" lasted 1.4 s and every udelay/mdelay was four times too
+	 * short.  The BootROM leaves the field at zero on the XMODEM recovery
+	 * path, hence the fallback.
+	 */
 	if (clk)
-		return (ulong)clk * 500000;
+		return (ulong)clk * 2000000;
 
 	return CONFIG_SYS_MIPS_TIMER_FREQ;
 }
