@@ -3060,14 +3060,19 @@ static int en751221_eth_send(struct udevice *dev, void *packet, int length)
 	u32 index, next, ctrl = 0, hw = 0, irq_status = 0;
 	u32 last_int, last_hw, last_free;
 	int tx_len = use_bounce ? max(length, ETH_ZLEN) : length;
+	bool irq_done = false;
 	int traced = 0;
 	int i;
 
 	if (use_bounce && tx_len > qdma->tx_bounce_size)
 		return -EMSGSIZE;
 
-	if (qdma->eth->soc->version == 0x7528)
-		en7528_qdma_reap_tx_irq(qdma);
+	/*
+	 * Drain completion entries left over from earlier submissions (EN7528
+	 * never waits for them; on EN751221 a timed-out TX leaves its entry
+	 * behind), so that a fresh entry below means this packet.
+	 */
+	en7528_qdma_reap_tx_irq(qdma);
 
 	index = q->head;
 	next = (index + 1) % q->ndesc;
@@ -3146,6 +3151,22 @@ static int en751221_eth_send(struct udevice *dev, void *packet, int length)
 			break;
 
 		/*
+		 * When U-Boot runs after the BootROM's own DRAM init (XMODEM
+		 * recovery) the EN751221 QDMA transmits the frame and posts the
+		 * completion entry to the TX IRQ queue, which is what TCBoot's
+		 * qdma_bm_transmit_done() polls, but it does not write DONE back
+		 * into the ring descriptor as it does after TCBoot's DRAM init.
+		 * TX_DMA_IDX moving past the packet plus a queued entry is the
+		 * vendor's own definition of "sent", so accept it too.
+		 */
+		if (qdma->eth->soc->version != 0x7528 && hw == next &&
+		    FIELD_GET(EN751221_IRQ_ENTRY_LEN_MASK,
+			      airoha_qdma_rr(qdma, EN751221_REG_IRQ_STATUS))) {
+			irq_done = true;
+			break;
+		}
+
+		/*
 		 * Sample densely at the start - where the engine either takes
 		 * the descriptor or gives up - then thin out, and only emit a
 		 * line when something actually moved.  Capped so a stuck
@@ -3176,13 +3197,13 @@ static int en751221_eth_send(struct udevice *dev, void *packet, int length)
 		udelay(1);
 	}
 
-	eth_trace("tx: loop end i=%d ctrl=%08x done=%d hw=%03x\n", i, ctrl,
-		  !!(ctrl & QDMA_DESC_DONE_MASK), hw);
+	eth_trace("tx: loop end i=%d ctrl=%08x done=%d irq=%d hw=%03x\n", i, ctrl,
+		  !!(ctrl & QDMA_DESC_DONE_MASK), irq_done, hw);
 
 	if (!use_bounce)
 		dma_unmap_single(dma_addr, length, DMA_TO_DEVICE);
 	if (qdma->eth->soc->version == 0x7528 ? hw != next :
-	    !(ctrl & QDMA_DESC_DONE_MASK)) {
+	    !(ctrl & QDMA_DESC_DONE_MASK) && !irq_done) {
 		printf("QDMA TX timeout: cfg=%08x cpu=%08x hw=%08x int=%08x hwcfg=%08x lmgr=%08x free=%08x used=%08x\n",
 		       airoha_qdma_rr(qdma, REG_QDMA_GLOBAL_CFG),
 		       airoha_qdma_rr(qdma, EN751221_REG_TX_CPU_IDX),
