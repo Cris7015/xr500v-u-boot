@@ -112,6 +112,49 @@ static const struct mtd_ooblayout_ops f50l1g41lb_ooblayout = {
 	.rfree = f50l1g41lb_ooblayout_free,
 };
 
+/*
+ * F50L1G41A: four 16-byte spare sections; byte 0 of each section is
+ * reserved (byte 0 of section 0 is the bad-block marker), bytes 1-7 hold
+ * the on-die ECC and bytes 8-15 are ECC-protected user metadata.
+ */
+#define F50L1G41A_OOB_SECTION_COUNT		4
+#define F50L1G41A_OOB_SECTION_SIZE		16
+#define F50L1G41A_OOB_ECC_OFFSET		1
+#define F50L1G41A_OOB_ECC_SIZE			7
+#define F50L1G41A_OOB_FREE_OFFSET		8
+#define F50L1G41A_OOB_FREE_SIZE			8
+
+static int f50l1g41a_ooblayout_ecc(struct mtd_info *mtd, int section,
+				   struct mtd_oob_region *region)
+{
+	if (section >= F50L1G41A_OOB_SECTION_COUNT)
+		return -ERANGE;
+
+	region->offset = section * F50L1G41A_OOB_SECTION_SIZE +
+			 F50L1G41A_OOB_ECC_OFFSET;
+	region->length = F50L1G41A_OOB_ECC_SIZE;
+
+	return 0;
+}
+
+static int f50l1g41a_ooblayout_free(struct mtd_info *mtd, int section,
+				    struct mtd_oob_region *region)
+{
+	if (section >= F50L1G41A_OOB_SECTION_COUNT)
+		return -ERANGE;
+
+	region->offset = section * F50L1G41A_OOB_SECTION_SIZE +
+			 F50L1G41A_OOB_FREE_OFFSET;
+	region->length = F50L1G41A_OOB_FREE_SIZE;
+
+	return 0;
+}
+
+static const struct mtd_ooblayout_ops f50l1g41a_ooblayout = {
+	.ecc = f50l1g41a_ooblayout_ecc,
+	.rfree = f50l1g41a_ooblayout_free,
+};
+
 static int f50l1g41lb_otp_info(struct spinand_device *spinand, size_t len,
 			       struct otp_info *buf, size_t *retlen, bool user)
 {
@@ -190,6 +233,22 @@ static const struct spinand_fact_otp_ops f50l1g41lb_fact_otp_ops = {
 };
 
 static const struct spinand_info esmt_c8_spinand_table[] = {
+	/*
+	 * READ-ID 9f + address 00 returns c8:21:7f:7f:7f.  Match the whole
+	 * sequence: the short c8:21 is also what the GigaDevice
+	 * GD5F1GQ5RExxH answers to the dummy-byte READ-ID method, and the
+	 * generic fallback picked that part before.
+	 */
+	SPINAND_INFO("F50L1G41A",
+		     SPINAND_ID(SPINAND_READID_METHOD_OPCODE_ADDR, 0x21, 0x7f,
+				0x7f, 0x7f),
+		     NAND_MEMORG(1, 2048, 64, 64, 1024, 20, 1, 1, 1),
+		     NAND_ECCREQ(1, 512),
+		     SPINAND_INFO_OP_VARIANTS(&read_cache_variants,
+					      &write_cache_variants,
+					      &update_cache_variants),
+		     0,
+		     SPINAND_ECCINFO(&f50l1g41a_ooblayout, NULL)),
 	SPINAND_INFO("F50L1G41LB",
 		     SPINAND_ID(SPINAND_READID_METHOD_OPCODE_ADDR, 0x01, 0x7f,
 				0x7f, 0x7f),
