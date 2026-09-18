@@ -28,5 +28,5 @@ flags="$endian -mabi=32 -mips32r2 -msoft-float -mno-abicalls -fno-pic -fno-pie \
  -Map "$build/chainloader.map" -o "$build/chainloader.elf" \
  "$build/start.o" "$build/chainloader.o"
 "$objcopy" -O binary "$build/chainloader.elf" "$out"
-# Self-check word plus padding to the BootROM's XMODEM block size.
+# Per-128-byte self-check table plus padding to the BootROM XMODEM block size.
 "${PYTHON3:-python3}" "$srctree/tools/econet_chainloader_image.py" "$out"
