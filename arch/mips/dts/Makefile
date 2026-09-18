@@ -6,7 +6,9 @@ dtb-$(CONFIG_TARGET_AP152) += ap152.dtb
 dtb-$(CONFIG_TARGET_MALTA) += mti,malta.dtb
 dtb-$(CONFIG_TARGET_PIC32MZDASK) += pic32mzda_sk.dtb
 dtb-$(CONFIG_TARGET_XILFPGA) += nexys4ddr.dtb
-dtb-$(CONFIG_TARGET_EN751221) += econet,en751221-reference.dtb
+dtb-$(CONFIG_TARGET_EN751221) += \
+	econet,en751221-reference.dtb \
+	econet,en751221-tplink_archer-xr500v-v1.dtb
 dtb-$(CONFIG_TARGET_EN751627) += econet,en751627-reference.dtb
 dtb-$(CONFIG_TARGET_EN7528) += \
 	econet,en7528-reference.dtb \

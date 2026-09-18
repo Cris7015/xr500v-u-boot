@@ -1,0 +1,42 @@
+loadaddr=0x89400000
+ipaddr=192.168.1.1
+serverip=192.168.1.10
+bootled=green:status-28
+
+bootconf=config-1
+bootfile=openwrt-airoha-en751221-tplink_archer-xr500v-v1-initramfs-kernel.bin
+bootloaderfile=openwrt-airoha-en751221-tplink_archer-xr500v-v1-uboot-bootloader.bin
+
+boot_tftp=tftpboot $loadaddr $bootfile && bootm $loadaddr#$bootconf
+ubi_read_openwrt=ubi read $loadaddr fit && iminfo $loadaddr
+
+set_ethaddr=ubi read 0x89f00000 misc 0x480000 && bin2mac ethaddr 0x89f0f100
+
+boot_openwrt=led $bootled blink 255; run set_ethaddr; ( run ubi_read_openwrt || echo Install openwrt ; run boot_tftp ) && bootm $loadaddr#$bootconf ; led $bootled on
+boot_ubi=ubi part ubi && run boot_openwrt
+
+upgrade_uboot=\
+  mw.b 0x89400000 0xff 0x100000 && tftpboot 0x89400000 ${bootloaderfile} && \
+  mtd erase u-boot && mtd write u-boot 0x89400000
+
+format_ubi_part=\
+  mtd read spi-nand0 0x89500000 0x1380000 0x480000 && \
+  mtd read spi-nand0 0x89a00000 0x0 0x40000 && \
+  mtd erase ubi && ubi part ubi && \
+  ubi create ubootenv 0x1f000 static && \
+  ubi create ubootenv2 0x1f000 static && \
+  ubi create misc 0x480000 static && ubi write 0x89500000 misc 0x480000 && \
+  ubi create tcboot_oem 0x40000 static && ubi write 0x89a00000 tcboot_oem 0x40000 && \
+  run upgrade_uboot
+
+bootcmd=run boot_ubi
+bootdelay=3
+bootmenu_confirm_return=askenv - Press ENTER to return to menu ; bootmenu 20
+bootmenu_default=0
+bootmenu_delay=3
+bootmenu_title=      34m( ( ( mOpenWrt34m ) ) )
+bootmenu_0=Run default boot command.=run boot_openwrt
+bootmenu_1=Boot system via TFTP.=run boot_tftp ; run bootmenu_confirm_return
+bootmenu_2=Format UBI partition (keeps OEM misc and tcboot as volumes).=run format_ubi_part
+bootmenu_4=Upgrade u-boot.=run upgrade_uboot
+bootmenu_5=Reboot.=reset
