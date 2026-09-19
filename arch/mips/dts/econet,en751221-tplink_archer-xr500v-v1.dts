@@ -42,6 +42,17 @@
 	leds {
 		compatible = "gpio-leds";
 
+		/*
+		 * Power. Not hardwired: the OEM bootloader switches it on, so
+		 * after BootROM recovery it stays dark unless U-Boot does.
+		 */
+		led@6 {
+			color = <LED_COLOR_ID_GREEN>;
+			function = LED_FUNCTION_POWER;
+			gpios = <&pinctrl 6 GPIO_ACTIVE_LOW>;
+			default-state = "on";
+		};
+
 		/* xPON */
 		pon_led: led@2 {
 			color = <LED_COLOR_ID_GREEN>;
