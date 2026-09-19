@@ -4,6 +4,7 @@
 #include <asm/global_data.h>
 #include <asm/io.h>
 #include <linux/bitops.h>
+#include <linux/kernel.h>
 #include <linux/sizes.h>
 #include <mach/en751221.h>
 #include <soc/airoha/pkgids.h>
@@ -34,9 +35,39 @@ static void en751221_clear_bootrom_recovery_latch(void)
 	(void)__raw_readl(reg);
 }
 
+#define EN751221_INTC_BASE	((void __iomem *)CKSEG1ADDR(0x1fb40000))
+#define EN751221_INTC_IPSR(n)	(0x10 + 4 * (n))
+
+/*
+ * Interrupt priority table of the interrupt controller, as the BootROM leaves
+ * it on the XMODEM recovery path (the OEM bootloader programmed the same
+ * thing on the flash path). One byte per priority slot, each naming an
+ * interrupt source. Linux's en751221 intc driver never programs these
+ * registers; with the table left at zero no source reaches the CPU and the
+ * kernel stops in calibrate_delay(), waiting for its first timer tick.
+ */
+static const u32 en751221_intc_ipsr[] = {
+	0x1f1e1d13, 0x16150111, 0x0008090a, 0x0b0c0d0f,
+	0x10060e07, 0x12030217, 0x18191a1b, 0x1c050414,
+};
+
+static void en751221_intc_init_priorities(void)
+{
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(en751221_intc_ipsr); i++)
+		if (__raw_readl(EN751221_INTC_BASE + EN751221_INTC_IPSR(i)))
+			return;
+
+	for (i = 0; i < ARRAY_SIZE(en751221_intc_ipsr); i++)
+		__raw_writel(en751221_intc_ipsr[i],
+			     EN751221_INTC_BASE + EN751221_INTC_IPSR(i));
+}
+
 int mach_cpu_init(void)
 {
 	en751221_clear_bootrom_recovery_latch();
+	en751221_intc_init_priorities();
 
 	return 0;
 }
