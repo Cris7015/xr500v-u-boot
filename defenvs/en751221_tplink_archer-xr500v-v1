@@ -4,7 +4,7 @@ serverip=192.168.1.10
 bootled=green:power
 
 bootconf=config-1
-bootfile=openwrt-airoha-en751221-tplink_archer-xr500v-v1-ubootmod-initramfs-kernel.bin
+bootfile=openwrt-airoha-en751221-tplink_archer-xr500v-v1-initramfs-kernel.bin
 bootloaderfile=openwrt-airoha-en751221-tplink_archer-xr500v-v1-uboot-bootloader.bin
 
 boot_tftp=tftpboot $loadaddr $bootfile && bootm $loadaddr#$bootconf
