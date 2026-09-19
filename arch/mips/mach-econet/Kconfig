@@ -58,10 +58,25 @@ config ECONET_BOOTROM_CHAINLOADER
 
 	  The BootROM downloads it to 0x80009000 over XMODEM and jumps there;
 	  it then pulls an unmodified u-boot.bin over XMODEM into
-	  CONFIG_TEXT_BASE and jumps to it. Nothing in U-Boot proper changes,
-	  and DRAM is already calibrated by the BootROM at that point.
+	  CONFIG_TEXT_BASE and jumps to it. Nothing in U-Boot proper changes.
 
 	  See arch/mips/mach-econet/chainloader/README.rst.
+
+config ECONET_BOOTROM_CHAINLOADER_DDR
+	bool "Run the V1.2.2 DDR stage from the chainloader"
+	depends on ECONET_BOOTROM_CHAINLOADER
+	default y
+	help
+	  BootROM recovery only runs the mask ROM's own DRAM init. It never
+	  runs the V1.2.2 DDR stage that boot2 runs before U-Boot on the
+	  flash path, so the PLLs stay at the BootROM's setting, DRAMC keeps
+	  the BootROM's parameters, REG_SAVE_INFO carries no clock field and
+	  QDMA does not write DONE back into TX descriptors.
+
+	  With this option the chainloader embeds en751221_ddr.bin and a copy
+	  of itself linked for FE SRAM, runs the DDR stage from there the way
+	  boot2 does, and only then receives u-boot.bin. The image grows to
+	  about 24 KiB.
 
 config ECONET_FLASH_BOOT
 	bool "Build the unsigned 128 KiB flash entry and raw U-Boot loader"

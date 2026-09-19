@@ -464,6 +464,7 @@ static void put_hex8(u8 v)
 	uart_putc(hex8[v & 0xf]);
 }
 
+#ifndef SRAM_STAGE
 static u32 chunk_crc(const volatile u8 *img, u32 len, u32 i)
 {
 	u32 off = i * CHK_CHUNK;
@@ -479,7 +480,7 @@ static u32 chunk_crc(const volatile u8 *img, u32 len, u32 i)
  * tools/econet_chainloader_image.py wrote at its end: locates the block,
  * not just flags failure.
  */
-static void self_check(void)
+static u32 self_check(void)
 {
 	const volatile u8 *img = (const volatile u8 *)&__image_start;
 	const volatile u32 *tab = (const volatile u32 *)&__chk_start;
@@ -504,7 +505,7 @@ static void self_check(void)
 	put_hex32(bad);
 	if (!bad) {
 		uart_puts(" OK\n");
-		return;
+		return 0;
 	}
 
 	uart_puts("\nbad idx:");
@@ -532,7 +533,9 @@ static void self_check(void)
 			uart_putc('\n');
 	}
 	uart_puts("corrupted image; continuing anyway\n");
+	return bad;
 }
+#endif
 
 /*
  * Writes 16 bytes with 8-bit stores and reads them back as words, once
@@ -590,6 +593,106 @@ static void halt(void)
 		watchdog_kick();
 }
 
+#ifdef EMBED_SRAM_STAGE
+/*
+ * BootROM recovery never runs the V1.2.2 DDR stage that boot2 runs on the
+ * flash path: PLLs stay at the BootROM's setting (~940 MHz instead of 900),
+ * DRAMC keeps the BootROM "7512DRAMC V1.0" init and REG_SAVE_INFO has no
+ * clock field. DRAM cannot be re-initialised from DRAM, so copy a second
+ * build of this loader and the DDR stage into FE SRAM and continue there.
+ */
+extern const u32 sram_stage_start[], sram_stage_end[];
+extern const u32 ddr_stage_start[], ddr_stage_end[];
+
+#define SHARE_FEMEM_SEL		0xbfb00958u
+#define SRAM_STAGE_UNCACHED	0xbfa30800u
+#define SRAM_STAGE_ENTRY	0x9fa30800u
+#define DDR_STAGE_UNCACHED	0xbfa32800u
+
+/* 32-bit uncached stores only: 8-bit uncached stores corrupt (README). */
+static u32 copy_words(u32 dst, const u32 *src, const u32 *end)
+{
+	u32 bad = 0, d = dst;
+	const u32 *s;
+
+	for (s = src; s < end; s++, d += 4)
+		mmio_write32(d, *s);
+	__asm__ volatile("sync" ::: "memory");
+	for (s = src, d = dst; s < end; s++, d += 4)
+		if (mmio_read32(d) != *s)
+			bad++;
+	return bad;
+}
+
+static void start_sram_stage(void)
+{
+	u32 bad;
+
+	/* boot2: allow PBUS access to FE memory before using it. */
+	mmio_write32(SHARE_FEMEM_SEL, mmio_read32(SHARE_FEMEM_SEL) | 1u);
+	__asm__ volatile("sync" ::: "memory");
+
+	bad = copy_words(SRAM_STAGE_UNCACHED, sram_stage_start, sram_stage_end);
+	bad += copy_words(DDR_STAGE_UNCACHED, ddr_stage_start, ddr_stage_end);
+	uart_puts("FE SRAM copy: loader 0x");
+	put_hex32((u32)sram_stage_end - (u32)sram_stage_start);
+	uart_puts(" ddr 0x");
+	put_hex32((u32)ddr_stage_end - (u32)ddr_stage_start);
+	uart_puts(" readback bad=0x");
+	put_hex32(bad);
+	uart_putc('\n');
+	if (bad) {
+		uart_puts("FE SRAM readback failed; not running the DDR stage\n");
+		halt();
+	}
+
+	watchdog_kick();
+	uart_puts("jump 0x9fa30800\n");
+	chainload_jump(SRAM_STAGE_ENTRY);
+}
+#endif
+
+#ifdef SRAM_STAGE
+extern void ddr_call(void);
+
+static void ddr_reinit(void)
+{
+	u32 t0;
+
+	uart_puts("running V1.2.2 DDR stage at 0x9fa32800\n");
+	/* Its uart_init() resets the FIFOs: let this line shift out first. */
+	t0 = cp0_count();
+	while (cp0_count() - t0 < 10u * ticks_per_ms)
+		;
+	ddr_call();
+
+	/* boot2 steps after the DDR stage returns (flash/en751221/boot2.S). */
+	mmio_write32(0xbfa60000u, mmio_read32(0xbfa60000u) | 1u);	/* SLM bypass */
+	mmio_write32(0xbfb00020u, 0x80071f1eu);				/* arbiter */
+	mmio_write32(0xbfb00024u, 0x00071f1fu);
+	mmio_write32(0xbfb00034u, 0x80050000u);
+	mmio_write32(0xbfb10000u, 0x102d1040u);				/* SMC */
+	mmio_write32(0xbfb10014u, 0x200028d0u);
+	__asm__ volatile("sync" ::: "memory");
+
+	/* The stage re-initialised the UART and changed the CPU clock. */
+	mmio_write32(UART_BASE + UART_IER, 0);
+	tx_chars = 0;
+	t0 = cp0_count();
+	uart_puts("\nDDR stage returned; recalibrating CP0 Count against the UART\n");
+	calibrate(t0, tx_chars);
+	uart_puts("ticks/ms=0x");
+	put_hex32(ticks_per_ms);
+	uart_puts(" pll 19c=0x");
+	put_hex32(mmio_read32(0xbfa2019cu));
+	uart_puts(" 1ac=0x");
+	put_hex32(mmio_read32(0xbfa201acu));
+	uart_puts(" save_info=0x");
+	put_hex32(mmio_read32(0xbfb00284u));
+	uart_putc('\n');
+}
+#endif
+
 void chainloader_main(void)
 {
 	u32 len, image_crc, t0;
@@ -611,7 +714,21 @@ void chainloader_main(void)
 	uart_puts("ticks/ms=0x");
 	put_hex32(ticks_per_ms);
 
+#ifdef SRAM_STAGE
+	/* The DRAM copy already checked the image this was copied from. */
+	uart_putc('\n');
+	ddr_reinit();
+#else
+#ifdef EMBED_SRAM_STAGE
+	if (self_check()) {
+		uart_puts("refusing to run a corrupted DDR stage\n");
+		halt();
+	}
+	start_sram_stage();
+#else
 	self_check();
+#endif
+#endif
 
 	uart_puts("waiting\n");
 

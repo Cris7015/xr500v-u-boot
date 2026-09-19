@@ -87,10 +87,18 @@ _start:
 	ehb
 	sync
 
+#ifdef SRAM_STAGE
+	/*
+	 * FE SRAM copy: DRAM is about to be re-initialised, so the stack
+	 * lives at the top of the boot2 window, below the DDR stage.
+	 */
+	li	$sp, 0x9fa32800 - 32
+#else
 	/* Stack in cached KSEG0, below the download address. */
 	lui	$sp, 0x8001
 	addiu	$sp, $sp, -0x8000
 	addiu	$sp, $sp, -32
+#endif
 
 	/* Zero .bss: the BootROM's XMODEM padding lands exactly there. */
 	la	$t0, __bss_start
@@ -177,3 +185,64 @@ chainload_jump:
 	jr	$s0
 	 nop
 .end chainload_jump
+
+#ifdef SRAM_STAGE
+/*
+ * Run the EN751221 V1.2.2 DDR stage resident at 0x9fa32800, the way boot2
+ * does on the flash path: it sets up its own gp/sp, reprograms the PLLs and
+ * DRAMC, and returns by jumping to the address in SCREG_WR0 (0xbfb00280).
+ * Nothing survives in registers, so keep the callee-saved set in .bss
+ * (FE SRAM, below the stage).
+ */
+#define SCREG_WR0	0xbfb00280
+#define DDR_STAGE	0x9fa32800
+
+.globl ddr_call
+.ent ddr_call
+ddr_call:
+	la	$t0, ddr_saved
+	sw	$sp, 0($t0)
+	sw	$ra, 4($t0)
+	sw	$gp, 8($t0)
+	sw	$fp, 12($t0)
+	sw	$s0, 16($t0)
+	sw	$s1, 20($t0)
+	sw	$s2, 24($t0)
+	sw	$s3, 28($t0)
+	sw	$s4, 32($t0)
+	sw	$s5, 36($t0)
+	sw	$s6, 40($t0)
+	sw	$s7, 44($t0)
+	la	$t1, ddr_return
+	li	$t2, SCREG_WR0
+	sw	$t1, 0($t2)
+	sync
+	li	$t3, DDR_STAGE
+	jr	$t3
+	 nop
+
+ddr_return:
+	li	$t2, SCREG_WR0
+	sw	$zero, 0($t2)
+	la	$t0, ddr_saved
+	lw	$sp, 0($t0)
+	lw	$ra, 4($t0)
+	lw	$gp, 8($t0)
+	lw	$fp, 12($t0)
+	lw	$s0, 16($t0)
+	lw	$s1, 20($t0)
+	lw	$s2, 24($t0)
+	lw	$s3, 28($t0)
+	lw	$s4, 32($t0)
+	lw	$s5, 36($t0)
+	lw	$s6, 40($t0)
+	lw	$s7, 44($t0)
+	jr	$ra
+	 nop
+.end ddr_call
+
+.section .bss
+.align 2
+ddr_saved:
+	.space	48
+#endif

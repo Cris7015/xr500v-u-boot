@@ -40,6 +40,44 @@ through to ``case NAK:``, so every one of them prints ``Retry N: NAK on
 sector`` until ``Retry Count Exceeded``. ``-k`` uses 1 KiB blocks: 367 instead
 of 2936 for a 375 KiB ``u-boot.bin``.
 
+Running the DDR stage (CONFIG_ECONET_BOOTROM_CHAINLOADER_DDR)
+--------------------------------------------------------------
+
+The BootROM recovery path is not the flash boot path. The BootROM only runs
+its own DRAM init (``7512DRAMC V1.0``); on the flash path boot2 then runs the
+V1.2.2 DDR stage (``en751221/ddr``, 0x9fa32800) before U-Boot. Without that
+stage, measured on the TP-Link Archer XR500v v1:
+
+- the CPU/bus PLLs keep the BootROM's setting (``0xbfa2019c``/``0xbfa201ac`` =
+  ``05102408``/``03b33333`` instead of ``05102308``/``03800000``): the CPU runs
+  at ~940 MHz, a U-Boot ``sleep 20`` takes 19.15 s;
+- ``REG_SAVE_INFO`` has no clock field, so Linux registers a 0 Hz bus clock
+  and its watchdog resets the board as soon as procd opens it;
+- DRAMC keeps the BootROM's parameters instead of the V1.2.2 BGA ones;
+- QDMA never writes DONE back into TX descriptors: U-Boot has to rely on
+  the TX IRQ queue, and Linux stalls after its first TX completions.
+
+With the option enabled, the image downloaded by the BootROM embeds a second
+build of the chainloader (``-DSRAM_STAGE``, linked at 0x9fa30800 by
+``chainloader-sram.lds``) and ``en751221_ddr.bin``. After ``self_check()``
+passes, the DRAM copy sets ``SHARE_FEMEM_SEL``, copies both into FE SRAM with
+32-bit stores, reads them back and jumps to the SRAM copy. That one calls the
+DDR stage with its return address in ``SCREG_WR0`` exactly like boot2, applies
+boot2's post-calibration writes (SLM bypass, arbiter, SMC), recalibrates its
+timebase and receives ``u-boot.bin`` as usual::
+
+  FE SRAM copy: loader 0x00001180 ddr 0x00004040 readback bad=0x00000000
+  running V1.2.2 DDR stage at 0x9fa32800
+  EN751221 DRAMC v1.2.2 ...
+  BGA IC / Xtal: 25Mhz / DDR3 init. / DRAM size=256MB / ddr-1066
+  calibration status: 0
+  DDR stage returned; recalibrating CP0 Count against the UART
+  ticks/ms=0x0006dcaa pll 19c=0x05102308 1ac=0x03800000 save_info=0x000e1100
+  waiting
+
+The DDR stage prints capital ``C`` characters (``DDR CALI``, ``Calculate``);
+a host script should only look for the XMODEM ``C`` after ``waiting``.
+
 Three SoC quirks this had to work around
 ----------------------------------------
 

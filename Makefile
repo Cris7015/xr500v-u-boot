@@ -1431,13 +1431,25 @@ econet-chain-src := $(abspath $(srctree))
 econet-chain-dir := $(econet-chain-src)/arch/mips/mach-econet/chainloader
 econet-chain-image := $(econet-chain-soc)-chainloader.bin
 quiet_cmd_econet_chainloader = CHAIN   $@
-cmd_econet_chainloader = srctree="$(abspath $(srctree))" objtree="$(CURDIR)" \
+ifeq ($(CONFIG_ECONET_BOOTROM_CHAINLOADER_DDR),y)
+econet-chain-ddr := $(CURDIR)/$(econet-chain-soc)_ddr.bin
+econet-chain-ddr-dir := $(econet-chain-src)/arch/mips/mach-econet/$(econet-chain-soc)/ddr
+cmd_econet_chainloader_ddr = srctree="$(abspath $(srctree))" \
+	objtree="$(CURDIR)" CROSS_COMPILE="$(CROSS_COMPILE)" \
+	$(CONFIG_SHELL) $(econet-chain-src)/tools/build-econet-ddr.sh \
+	$(econet-chain-soc) &&
+econet-chain-deps := $(wildcard $(econet-chain-ddr-dir)/*) \
+	$(econet-chain-src)/tools/build-econet-ddr.sh
+endif
+cmd_econet_chainloader = $(cmd_econet_chainloader_ddr) \
+	srctree="$(abspath $(srctree))" objtree="$(CURDIR)" \
 	CROSS_COMPILE="$(CROSS_COMPILE)" UBOOT_LOAD_ADDR=$(CONFIG_TEXT_BASE) \
+	DDR_STAGE_BIN="$(econet-chain-ddr)" \
 	PYTHON3="$(PYTHON3)" $(CONFIG_SHELL) \
 	$(econet-chain-src)/tools/build-econet-chainloader.sh $(econet-chain-soc)
 
 $(econet-chain-image): $(wildcard $(econet-chain-dir)/*.[cS]) \
-	$(econet-chain-dir)/chainloader.lds \
+	$(wildcard $(econet-chain-dir)/*.lds) $(econet-chain-deps) \
 	$(econet-chain-src)/tools/build-econet-chainloader.sh \
 	$(econet-chain-src)/tools/econet_chainloader_image.py FORCE
 	$(call if_changed,econet_chainloader)
