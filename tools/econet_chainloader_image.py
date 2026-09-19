@@ -15,7 +15,7 @@ import struct
 import sys
 
 XMODEM_BLOCK = 128
-CRC_TABLE_ENTRIES = 96
+CRC_TABLE_ENTRIES = 320
 CRC_TABLE_SIZE = CRC_TABLE_ENTRIES * 4
 
 path = sys.argv[1]
@@ -29,8 +29,11 @@ if nchunks > CRC_TABLE_ENTRIES:
     sys.exit('chainloader CRC table too small')
 
 # .imgchk is linked as zero-filled storage.  Fill one big-endian CRC32 entry
-# per 128-byte chunk of the image preceding the table.
-data[chk_start:] = b'\x00' * CRC_TABLE_SIZE
+# per 128-byte chunk of the image preceding the table.  Anything but zeros
+# here means the table is not in the binary (a FILL-only, NOBITS section is
+# dropped by objcopy) and these bytes are the end of .rodata.
+if any(data[chk_start:]):
+    sys.exit('chainloader CRC table not found at the end of the image')
 for i in range(nchunks):
     start = i * XMODEM_BLOCK
     end = min(start + XMODEM_BLOCK, chk_start)

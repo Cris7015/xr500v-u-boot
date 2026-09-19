@@ -476,7 +476,8 @@ static u32 chunk_crc(const volatile u8 *img, u32 len, u32 i)
 
 /*
  * Checks the loaded image against the per-128-byte-block CRC32 table that
- * patch_crc.py wrote at its end: locates the block, not just flags failure.
+ * tools/econet_chainloader_image.py wrote at its end: locates the block,
+ * not just flags failure.
  */
 static void self_check(void)
 {

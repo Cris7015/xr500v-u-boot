@@ -9,9 +9,11 @@ SECTIONS
 	.data : ALIGN(4) { *(.data .data.*) }
 	.got : ALIGN(4) { *(.got .got.*) }
 	/* Tabela de CRC32 por bloco de 128 B, gravada depois do link pelo
-	 * patch_crc.py. Fica por ultimo: tudo antes dela e o que e conferido.
+	 * tools/econet_chainloader_image.py. Fica por ultimo: tudo antes dela
+	 * e o que e conferido. LONG() da conteudo a secao: so com FILL ela e
+	 * NOBITS, o objcopy nao a emite e a tabela cairia sobre o .rodata.
 	 */
-	.imgchk : ALIGN(4) { __chk_start = .; FILL(0x00000000) . = . + 96 * 4; }
+	.imgchk : ALIGN(4) { __chk_start = .; LONG(0); . = __chk_start + 320 * 4; }
 	__image_load_end = .;
 	.bss (NOLOAD) : ALIGN(16) { __bss_start = .; *(.bss .bss.* COMMON) . = ALIGN(16); __bss_end = .; }
 	__image_end = .;

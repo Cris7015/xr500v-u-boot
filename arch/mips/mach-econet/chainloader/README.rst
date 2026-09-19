@@ -81,13 +81,18 @@ Self-check
 ----------
 
 The BootROM validates its own XMODEM download with an 8-bit checksum, which
-lets corruption through. ``tools/econet_chainloader_image.py`` stores a CRC32 of
-the image in its last loaded word and pads to 128 bytes; the chainloader
-recomputes it in DRAM and refuses to continue on a mismatch::
+lets corruption through. ``tools/econet_chainloader_image.py`` fills the
+``.imgchk`` table at the end of the image with a CRC32 per 128-byte block and
+pads to 128 bytes; the chainloader recomputes every block in DRAM and reports
+the first bad one::
 
   EN751221 BootROM chainloader
   XMODEM 128/1k, CRC16 ou checksum -> 0x81000000
-  ticks/ms=0x00070627 self len=0x000021f4 crc=0x174efbda want=0x174efbda OK
+  ticks/ms=0x00070627 self len=0x00001200 blocks=0x00000024 bad=0x00000000 OK
+
+``.imgchk`` must have contents (``LONG()`` in the linker script): a section
+holding only ``FILL`` is NOBITS, ``objcopy -O binary`` leaves it out, and the
+table would land on the end of ``.rodata`` instead.
 
 Everything mutable lives in ``.bss``, which is outside the checked region and
 zeroed by ``start.S`` (the BootROM's XMODEM padding lands there).
