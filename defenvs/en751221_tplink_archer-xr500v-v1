@@ -4,15 +4,15 @@ serverip=192.168.1.10
 bootled=green:power
 
 bootconf=config-1
-bootfile=openwrt-airoha-en751221-tplink_archer-xr500v-v1-initramfs-kernel.bin
+bootfile=openwrt-airoha-en751221-tplink_archer-xr500v-v1-ubootmod-initramfs-kernel.bin
 bootloaderfile=openwrt-airoha-en751221-tplink_archer-xr500v-v1-uboot-bootloader.bin
 
 boot_tftp=tftpboot $loadaddr $bootfile && bootm $loadaddr#$bootconf
 ubi_read_openwrt=ubi read $loadaddr fit && iminfo $loadaddr
 
-set_ethaddr=ubi read 0x89f00000 misc 0x480000 && bin2mac ethaddr 0x89f0f100
+set_ethaddr=ubi read 0x89f00000 misc 0x480000 && bin2mac ethaddr 0x89f0f100 6
 
-boot_openwrt=led $bootled blink 255; run set_ethaddr; ( run ubi_read_openwrt || echo Install openwrt ; run boot_tftp ) && bootm $loadaddr#$bootconf ; led $bootled on
+boot_openwrt=led $bootled blink 255; run set_ethaddr; if run ubi_read_openwrt; then bootm $loadaddr#$bootconf; else echo Install openwrt; run boot_tftp; fi; led $bootled on
 boot_ubi=ubi part ubi && run boot_openwrt
 
 upgrade_uboot=\
