@@ -247,7 +247,7 @@ static const struct spinand_info esmt_c8_spinand_table[] = {
 		     SPINAND_INFO_OP_VARIANTS(&read_cache_variants,
 					      &write_cache_variants,
 					      &update_cache_variants),
-		     0,
+		     SPINAND_BBM_1_BYTE | SPINAND_BBM_SECOND_PAGE,
 		     SPINAND_ECCINFO(&f50l1g41a_ooblayout, NULL)),
 	SPINAND_INFO("F50L1G41LB",
 		     SPINAND_ID(SPINAND_READID_METHOD_OPCODE_ADDR, 0x01, 0x7f,
