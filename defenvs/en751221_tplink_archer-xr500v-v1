@@ -1,7 +1,7 @@
 loadaddr=0x89400000
 ipaddr=192.168.1.1
 serverip=192.168.1.10
-bootled=green:status-28
+bootled=green:power
 
 bootconf=config-1
 bootfile=openwrt-airoha-en751221-tplink_archer-xr500v-v1-initramfs-kernel.bin
