@@ -1,0 +1,156 @@
+// SPDX-License-Identifier: GPL-2.0+
+/dts-v1/;
+
+#include "econet,en751221.dtsi"
+
+/ {
+	model = "TP-Link Archer XR500v v1";
+	compatible = "tplink,archer-xr500v-v1", "econet,en751221";
+
+	/* EN7526G package of the EN751221 family, 256 MiB DDR, 128 MiB SPI-NAND. */
+
+	chosen {
+		stdout-path = "serial0:115200n8";
+	};
+
+	keys {
+		compatible = "gpio-keys-polled";
+
+		reset {
+			label = "reset";
+			linux,code = <KEY_RESTART>;
+			gpios = <&pinctrl 0 GPIO_ACTIVE_LOW>;
+			debounce-interval = <60>;
+		};
+
+		wifi {
+			label = "wifi";
+			linux,code = <KEY_RFKILL>;
+			gpios = <&pinctrl 4 GPIO_ACTIVE_LOW>;
+			debounce-interval = <60>;
+		};
+
+		wps {
+			label = "wps";
+			linux,code = <KEY_WPS_BUTTON>;
+			gpios = <&pinctrl 9 GPIO_ACTIVE_LOW>;
+			debounce-interval = <60>;
+		};
+	};
+
+	/* The power LED is wired to the rail, not to a GPIO. */
+	leds {
+		compatible = "gpio-leds";
+
+		/*
+		 * Power. Not hardwired: the OEM bootloader switches it on, so
+		 * after BootROM recovery it stays dark unless U-Boot does.
+		 */
+		led@6 {
+			color = <LED_COLOR_ID_GREEN>;
+			function = LED_FUNCTION_POWER;
+			gpios = <&pinctrl 6 GPIO_ACTIVE_LOW>;
+			default-state = "on";
+		};
+
+		/* xPON */
+		pon_led: led@2 {
+			color = <LED_COLOR_ID_GREEN>;
+			function = LED_FUNCTION_STATUS;
+			function-enumerator = <2>;
+			gpios = <&pinctrl 2 GPIO_ACTIVE_LOW>;
+		};
+
+		/* WPS */
+		led@7 {
+			color = <LED_COLOR_ID_GREEN>;
+			function = LED_FUNCTION_WPS;
+			function-enumerator = <7>;
+			gpios = <&pinctrl 7 GPIO_ACTIVE_LOW>;
+		};
+
+		/* USB */
+		led@11 {
+			color = <LED_COLOR_ID_GREEN>;
+			function = LED_FUNCTION_USB;
+			function-enumerator = <11>;
+			gpios = <&pinctrl 11 GPIO_ACTIVE_LOW>;
+		};
+
+		/* LOS */
+		pon_los: led@24 {
+			color = <LED_COLOR_ID_RED>;
+			function = LED_FUNCTION_STATUS;
+			function-enumerator = <24>;
+			gpios = <&pinctrl 24 GPIO_ACTIVE_LOW>;
+		};
+
+		/* Phone 1 */
+		led@25 {
+			color = <LED_COLOR_ID_GREEN>;
+			function = LED_FUNCTION_STATUS;
+			function-enumerator = <25>;
+			gpios = <&pinctrl 25 GPIO_ACTIVE_LOW>;
+		};
+
+		/* Phone 2 */
+		led@26 {
+			color = <LED_COLOR_ID_GREEN>;
+			function = LED_FUNCTION_STATUS;
+			function-enumerator = <26>;
+			gpios = <&pinctrl 26 GPIO_ACTIVE_LOW>;
+		};
+
+		/* Internet: free during boot, used as the boot indicator. */
+		internet_led: led@28 {
+			color = <LED_COLOR_ID_GREEN>;
+			function = LED_FUNCTION_STATUS;
+			function-enumerator = <28>;
+			gpios = <&pinctrl 28 GPIO_ACTIVE_LOW>;
+		};
+	};
+};
+
+&uart0 {
+	status = "okay";
+};
+
+&eth {
+	status = "okay";
+};
+
+&gdm1 {
+	status = "okay";
+};
+
+&switch0 {
+	status = "okay";
+};
+
+&spi0 {
+	status = "okay";
+
+	nand: nand@0 {
+		compatible = "spi-nand";
+		reg = <0>;
+		spi-max-frequency = <50000000>;
+		spi-tx-bus-width = <1>;
+		spi-rx-bus-width = <2>;
+
+		partitions {
+			compatible = "fixed-partitions";
+			#address-cells = <1>;
+			#size-cells = <1>;
+
+			partition@0 {
+				label = "u-boot";
+				reg = <0x000000 0x100000>;
+			};
+
+			partition@100000 {
+				label = "ubi";
+				reg = <0x100000 0x000000>;
+			};
+		};
+	};
+};
