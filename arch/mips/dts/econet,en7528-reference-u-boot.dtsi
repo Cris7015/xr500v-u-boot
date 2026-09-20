@@ -1,5 +1,4 @@
 // SPDX-License-Identifier: GPL-2.0+
-/* tcboot.bin is assembled by tools/build-econet-flash.sh. */
 &uart0 {
 	bootph-all;
 };

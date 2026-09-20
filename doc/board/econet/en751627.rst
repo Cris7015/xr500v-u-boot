@@ -5,8 +5,8 @@ EN7516/EN7527
 
 The EN751627 target is the big-endian member of the EN7528 MIPS1004Kc
 family. It shares the CPU/board implementation in ``en7528/`` and the
-peripheral register map in ``econet,en7528.dtsi``. It does not select
-``TARGET_EN7528`` or reuse its little-endian DDR calibration payload.
+peripheral register map in ``econet,en7528.dtsi``. It does not select ``TARGET_EN7528``. DDR calibration and flash-image
+construction are maintained outside the U-Boot tree.
 
 Build
 -----
@@ -16,12 +16,11 @@ Use a GNU MIPS toolchain capable of generating big-endian MIPS32r2 code::
    make O=build/en751627 en751627_reference_defconfig
    make O=build/en751627 CROSS_COMPILE=mips-linux-gnu- -j4
 
-``build/en751627/u-boot.bin`` remains a RAM-loaded image with an appended
-device tree, linked at 0x81000000. ``build/en751627/tcboot.bin`` is the 1 MiB
-flash image: SDK entry/CPS setup, DDR calibration and a raw loader occupy
-the first 128 KiB, followed by the U-Boot uImage. See ``tcboot-build.rst``
-for the layout, build inputs and physical NAND/ECC limitations. Peripheral
-bring-up, including switch PHY initialization, still needs board validation.
+``build/en751627/u-boot.bin`` is a RAM-loaded image with an appended device
+tree, linked at 0x81000000. The preceding DDR/flash stage and any 1 MiB
+replacement ``tcboot.bin`` are built in the external early-boot repository.
+Peripheral bring-up, including switch PHY initialization, still needs board
+validation.
 
 Hardware description
 --------------------
@@ -59,8 +58,7 @@ variants; the TX destination field stays in bits [21:19].
 
 The SPI compatible binds the existing SNFI driver. Both SFC and NFI banks
 use native 32-bit register access, with FIFO data extracted byte by byte.
-SPI-NAND retains the existing DMA path and on-die ECC policy. This does not
-implement tcboot controller-ECC/BMT image compatibility. NAND data written
+SPI-NAND retains the existing DMA path and on-die ECC policy. This does not implement vendor controller-ECC/BMT image compatibility. NAND data written
 with a different ECC layout cannot be assumed readable by this driver.
 
 Evidence and validation

@@ -5,8 +5,8 @@
  * This board reuses the EN7528 SoC support - econet,en7528.dtsi and the
  * mach-en75xx port - originally written by
  * Matheus Sampaio Queiroga <srherobrine20@gmail.com> in the en7523_u-boot
- * tree. The replacement image uses TPL/SPL and the reconstructed EN7528
- * DDR-training payload before entering U-Boot proper.
+ * tree. U-Boot proper is entered after an external DRAM/early-boot stage;
+ * that stage and its bootext/flash images are not built in this tree.
  */
 /dts-v1/;
 
@@ -46,10 +46,9 @@
 			#size-cells = <1>;
 
 			/*
-			 * The replacement bootloader reserves 1 MiB. This does
-			 * not match the vendor 256 KiB TCBoot layout; a board must
-			 * reserve this larger region before flashing the combined
-			 * image.
+			 * The external replacement bootloader currently reserves
+			 * 1 MiB. This does not match the vendor 256 KiB layout;
+			 * preserve the board-specific partitioning when flashing.
 			 */
 			partition@0 {
 				label = "bootloader";

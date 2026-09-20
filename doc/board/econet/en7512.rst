@@ -3,41 +3,18 @@
 EN7512/EN7521 reference board
 =============================
 
-This target provides the initial U-Boot port for the MIPS-based EcoNet/Airoha
-EN7512 and EN7521 SoCs. It implements an experimental TPL, SPL and U-Boot proper flow intended to
-replace TCBoot after the board-specific reset and flash paths are validated.
+This target provides U-Boot proper for the MIPS-based EcoNet/Airoha EN7512
+and EN7521 SoCs. DDR calibration, BootROM recovery chainloaders and TCBoot
+flash-image construction are intentionally maintained outside the U-Boot tree.
 
 Boot flow
 ---------
 
-The TPL is linked for the uncached reset mapping at ``0xbfc00000``. This
-link address alone does not establish compatibility with internal-ROM NAND
-boot, the vendor stage descriptor, or the stock flash ECC layout.
-The TPL enables the Front-End SRAM, initializes the serial port and reads the
-DDR calibration image and SPL through the early SFC reader. After DDR
-initialization, SPL loads ``u-boot.img`` into DRAM.
-
-The generated ``u-boot-en7512.bin`` has the following fixed layout:
-
-==================  ===========  ========================================
-Offset              Maximum size Contents
-==================  ===========  ========================================
-``0x00000000``      ``0x8000``   TPL and TCBoot image descriptor
-``0x00008000``      ``0x4f70``   Vendor DDR calibration image
-``0x0000ff00``      ``0x100``    Board manufacturing information
-``0x00010000``      ``0x40000``  Legacy-header SPL image
-``0x00050000``      remaining    Legacy ``u-boot.img``
-==================  ===========  ========================================
-
-The combined image leaves the manufacturing block erased. Before replacing a
-stock bootloader, preserve the board-specific block from the original image::
-
-    tools/en7512_image.py --image u-boot-en7512.bin \
-        --stock tcboot-stock.bin --output u-boot-en7512-board.bin
-
-The block contains data such as the MAC address, model and board GPIO values.
-Do not flash the unmerged combined image over a device whose board data has not
-been backed up.
+An earlier stage initializes DRAM and loads U-Boot at ``0x81000000``. Depending
+on the board and recovery path that stage may be a vendor BootROM/DRAMC flow or
+an external replacement flash/chainloader project. U-Boot consumes the DRAM
+size and clock handoff left in ``REG_SAVE_INFO`` and does not rebuild or embed
+the early boot stages.
 
 Build
 -----
@@ -47,28 +24,17 @@ Use a big-endian MIPS cross compiler::
     make en7512_reference_defconfig
     make CROSS_COMPILE=mips-linux-gnu-
 
-The experimental combined image is ``u-boot-en7512.bin``. The DDR payload is
-built automatically before Binman, including out-of-tree builds. A missing
-payload is a build error; it must not be replaced by a fake external blob.
+The U-Boot tree produces the normal U-Boot artifacts such as ``u-boot.bin``,
+``u-boot.img`` and the configured device tree. Construct any board-specific
+``tcboot.bin`` or recovery/DRAMC image in the external early-boot repository.
 
 Current limitations
 -------------------
 
-* DDR initialization uses reconstructed assembly from the vendor calibration
-  objects, linked at ``0x9fa32800``. This is not a native, independently
-  documented DRAM driver. See ``tcboot-build.rst`` for provenance and limits.
-* The SFC implementation used by TPL and SPL is read-only. U-Boot proper uses
-  the Airoha EN7523 SPI-MEM driver with the EN751221 double chip-select quirk.
-  Flash erase/write must not be used until the board's BBT/BMT layout has been
-  verified.
-* Ethernet provides a polling-only U-Boot path through EN751221 QDMA0, GDM1
-  and the integrated MT7530. It deliberately preserves switch/PHY reset state
-  during chainloading. Cold-boot PHY initialization and multi-port control
-  still need board-specific validation.
-* U-Boot proper has been chainloaded and validated on physical hardware. The
-  complete BootROM -> TPL -> SPL -> U-Boot cold-boot path remains untested.
-
-TPL reports early failures with one character followed by a newline:
-``I`` for SFC initialization, ``F`` for DDR image reading, ``H`` for an
-invalid SPL header, ``S`` for SPL loading and ``L`` for a load address that
-cannot be reached through KSEG0/KSEG1.
+* The preceding DRAM stage must provide a valid ``REG_SAVE_INFO`` handoff.
+* U-Boot proper uses the Airoha EN7523 SPI-MEM driver with the EN751221 double
+  chip-select quirk. Verify the board BBT/BMT/ECC layout before modifying NAND.
+* Ethernet provides a polling U-Boot path through EN751221 QDMA0, GDM1 and the
+  integrated MT7530. Cold-boot PHY initialization remains board-specific.
+* U-Boot proper has been chainloaded and validated on physical hardware; the
+  reset-to-U-Boot path is owned and validated separately from this tree.

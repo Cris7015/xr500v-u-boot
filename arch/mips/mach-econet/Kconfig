@@ -10,8 +10,6 @@ config TARGET_EN751221
 	select SYSCON
 	select MIPS_TUNE_34KC
 	select PINCTRL_AIROHA_EN751221
-	select ECONET_FLASH_BOOT
-	select SPL_LOADER_SUPPORT if SPL
 
 config TARGET_EN751627
 	bool "Airoha EN751627 SoC"
@@ -19,10 +17,9 @@ config TARGET_EN751627
 	select SYSCON
 	select MIPS_TUNE_1004KC
 	select MIPS_SKIP_CP0_COUNT_CLEAR
-	select SPL_LOADER_SUPPORT if SPL
 	help
 	  EN7516/EN7527 shares most peripheral support with EN7528 but boots
-	  big-endian and uses its own DDR-training payload and TCBoot metadata.
+	  big-endian. Early DDR/flash boot stages are built outside U-Boot.
 
 config TARGET_EN7528
 	bool "Airoha EN7528 SoC"
@@ -31,8 +28,6 @@ config TARGET_EN7528
 	select MIPS_TUNE_1004KC
 	select MIPS_SKIP_CP0_COUNT_CLEAR
 	select PINCTRL_AIROHA_EN7528
-	select ECONET_FLASH_BOOT
-	select SPL_LOADER_SUPPORT if SPL
 
 config TARGET_EN7580
 	bool "Airoha EN7580 SoC"
@@ -40,37 +35,11 @@ config TARGET_EN7580
 	select SYSCON
 	select MIPS_TUNE_1004KC
 	select MIPS_SKIP_CP0_COUNT_CLEAR
-	select BINMAN
-	select SPL_LOADER_SUPPORT if SPL
 	help
 	  Select support for the little-endian MIPS32r2 EN7580 family.
-	  Initial support targets direct TPL/SPL bring-up on the XGZ030.
+	  U-Boot proper is entered after the external early-boot/DRAM stage.
 
 endchoice
-
-config ECONET_BOOTROM_CHAINLOADER
-	bool "Build the BootROM XMODEM chainloader"
-	depends on TARGET_EN751221
-	default y
-	help
-	  Build en751221-chainloader.bin, a ~10 KiB standalone loader for the
-	  EN751221 internal BootROM recovery path.
-
-	  The BootROM downloads it to 0x80009000 over XMODEM and jumps there;
-	  it then pulls an unmodified u-boot.bin over XMODEM into
-	  CONFIG_TEXT_BASE and jumps to it. Nothing in U-Boot proper changes,
-	  and DRAM is already calibrated by the BootROM at that point.
-
-	  See arch/mips/mach-econet/chainloader/README.rst.
-
-config ECONET_FLASH_BOOT
-	bool "Build the unsigned 128 KiB flash entry and raw U-Boot loader"
-	depends on !SPL && !TPL
-	default y
-	help
-	  Build tcboot.bin from SDK reset/move_data/boot2, DDR calibration and
-	  a small uncompressed loader. U-Boot proper starts at flash offset
-	  0x20000; the complete image occupies 1 MiB.
 
 config SYS_VENDOR
 	default "econet"
@@ -107,19 +76,6 @@ config SYS_ICACHE_LINE_SIZE
 
 config TEXT_BASE
 	default 0x81000000
-
-config SPL_TEXT_BASE
-	default 0x80010000
-
-config SPL_SIZE_LIMIT
-	default 0x30000
-
-config TPL_TEXT_BASE
-	default 0xbfc00000
-
-config TPL_MAX_SIZE
-	default 0x8000
-
 
 config BUILD_TARGET
 	default "u-boot.img"

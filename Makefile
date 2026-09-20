@@ -1389,109 +1389,10 @@ define deprecated
 
 endef
 
-# Build the standalone EN751221/EN751627/EN7528 flash entry, without TPL or SPL.
-ifeq ($(CONFIG_ECONET_FLASH_BOOT),y)
-econet-flash-soc-$(CONFIG_TARGET_EN751221) := en751221
-econet-flash-soc-$(CONFIG_TARGET_EN751627) := en751627
-econet-flash-soc-$(CONFIG_TARGET_EN7528) := en7528
-econet-flash-soc := $(econet-flash-soc-y)
-econet-flash-src := $(abspath $(srctree))
-econet-flash-dir := $(econet-flash-src)/arch/mips/mach-econet/flash
-econet-flash-ddr-dir := $(econet-flash-src)/arch/mips/mach-econet/$(econet-flash-soc)/ddr
-quiet_cmd_econet_flash = TCBOOT  $@
-cmd_econet_flash = srctree="$(abspath $(srctree))" objtree="$(CURDIR)" \
-	CROSS_COMPILE="$(CROSS_COMPILE)" \
-	ECONET_EN7528_READABLE_DDR="$(CONFIG_ECONET_EN7528_READABLE_DDR)" \
-	$(CONFIG_SHELL) $(srctree)/tools/build-econet-ddr.sh $(econet-flash-soc) && \
-	srctree="$(abspath $(srctree))" objtree="$(CURDIR)" \
-	CROSS_COMPILE="$(CROSS_COMPILE)" UBOOT_LOAD_ADDR=$(CONFIG_TEXT_BASE) \
-	PYTHON3="$(PYTHON3)" $(CONFIG_SHELL) \
-	$(srctree)/tools/build-econet-flash.sh $(econet-flash-soc)
-
-tcboot.bin: u-boot.img $(wildcard $(econet-flash-dir)/*.[chS]) \
-	$(wildcard $(econet-flash-dir)/*.lds) \
-	$(wildcard $(econet-flash-dir)/$(econet-flash-soc)/*.S) \
-	$(wildcard $(econet-flash-dir)/$(econet-flash-soc)/*.lds) \
-	$(wildcard $(econet-flash-ddr-dir)/reconstructed/*.S) \
-	$(wildcard $(econet-flash-ddr-dir)/readable/*) \
-	$(wildcard $(econet-flash-ddr-dir)/*) \
-	$(econet-flash-src)/arch/mips/mach-econet/early_sfc.c \
-	$(econet-flash-src)/tools/build-econet-flash.sh \
-	$(econet-flash-src)/tools/build-econet-ddr.sh \
-	$(econet-flash-src)/tools/econet_flash_image.py FORCE
-	$(call if_changed,econet_flash)
-targets += tcboot.bin
-all: tcboot.bin
-endif
-
-# Build the EN751221 BootROM XMODEM chainloader.
-ifeq ($(CONFIG_ECONET_BOOTROM_CHAINLOADER),y)
-econet-chain-soc := en751221
-econet-chain-src := $(abspath $(srctree))
-econet-chain-dir := $(econet-chain-src)/arch/mips/mach-econet/chainloader
-econet-chain-image := $(econet-chain-soc)-chainloader.bin
-quiet_cmd_econet_chainloader = CHAIN   $@
-cmd_econet_chainloader = srctree="$(abspath $(srctree))" objtree="$(CURDIR)" \
-	CROSS_COMPILE="$(CROSS_COMPILE)" UBOOT_LOAD_ADDR=$(CONFIG_TEXT_BASE) \
-	PYTHON3="$(PYTHON3)" $(CONFIG_SHELL) \
-	$(econet-chain-src)/tools/build-econet-chainloader.sh $(econet-chain-soc)
-
-$(econet-chain-image): $(wildcard $(econet-chain-dir)/*.[cS]) \
-	$(econet-chain-dir)/chainloader.lds \
-	$(econet-chain-src)/tools/build-econet-chainloader.sh \
-	$(econet-chain-src)/tools/econet_chainloader_image.py FORCE
-	$(call if_changed,econet_chainloader)
-targets += $(econet-chain-image)
-all: $(econet-chain-image)
-endif
-
-# Build the EcoNet DDR payload before Binman consumes it, including O= builds.
-ifeq ($(CONFIG_ARCH_ECONET)$(CONFIG_TPL),yy)
-econet-ddr-soc-$(CONFIG_TARGET_EN751221) := en751221
-econet-ddr-soc-$(CONFIG_TARGET_EN751627) := en751627
-econet-ddr-soc-$(CONFIG_TARGET_EN7528) := en7528
-econet-ddr-soc-$(CONFIG_TARGET_EN7580) := en7580
-econet-ddr-soc := $(econet-ddr-soc-y)
-
-econet-ddr-dir := $(srctree)/arch/mips/mach-econet/$(econet-ddr-soc)/ddr
-econet-ddr-image := $(econet-ddr-soc)_ddr.bin
-econet-ddr-script := $(abspath $(srctree)/tools/build-econet-ddr.sh)
-econet-tcboot-script := $(abspath $(srctree)/tools/econet_tcboot_image.py)
-econet-boot-image-$(CONFIG_TARGET_EN751221) := u-boot-en7512.bin
-econet-boot-image-$(CONFIG_TARGET_EN751627) := u-boot-en751627.bin
-econet-boot-image-$(CONFIG_TARGET_EN7528) := u-boot-en7528.bin
-econet-boot-image-$(CONFIG_TARGET_EN7580) := u-boot-en7580.bin
-econet-boot-image := $(econet-boot-image-y)
-
-quiet_cmd_econet_ddr = DDR     $@
-cmd_econet_ddr = srctree="$(abspath $(srctree))" \
-	objtree="$(CURDIR)" CROSS_COMPILE="$(CROSS_COMPILE)" \
-	ECONET_EN7528_READABLE_DDR="$(CONFIG_ECONET_EN7528_READABLE_DDR)" \
-	$(CONFIG_SHELL) $(econet-ddr-script) $(econet-ddr-soc)
-quiet_cmd_econet_tcboot = TCBOOT  $(econet-boot-image)
-cmd_econet_tcboot = $(PYTHON3) $(econet-tcboot-script) \
-	--soc $(econet-ddr-soc) --image $(econet-boot-image)
-
-$(econet-ddr-image): $(wildcard $(econet-ddr-dir)/reconstructed/*.S) \
-		     $(wildcard $(econet-ddr-dir)/readable/*) \
-		     $(wildcard $(econet-ddr-dir)/*.c) \
-		     $(wildcard $(econet-ddr-dir)/*.S) \
-		     $(wildcard $(econet-ddr-dir)/*.bin) \
-		     $(wildcard $(econet-ddr-dir)/ddr.lds) \
-		     $(econet-ddr-script) FORCE
-	$(call if_changed,econet_ddr)
-
-targets += $(econet-ddr-image)
-.binman_stamp: $(econet-ddr-image) $(econet-tcboot-script)
-endif
-
 # Timestamp file to make sure that binman always runs
 .binman_stamp: $(INPUTS-y) FORCE
 ifeq ($(CONFIG_BINMAN),y)
 	$(call if_changed,binman)
-ifeq ($(CONFIG_ARCH_ECONET)$(CONFIG_TPL),yy)
-	$(call cmd,econet_tcboot)
-endif
 endif
 	@touch $@
 
