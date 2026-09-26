@@ -843,6 +843,22 @@ static bool airoha_uses_legacy_qdma(struct airoha_eth *eth)
 	return eth->soc->legacy_qdma;
 }
 
+/*
+ * The EN751221 switch setup turns on hardware PHY polling.  The poller is an
+ * MDIO master of its own, which the OS cannot serialize with its MDIO bus
+ * lock, and it corrupts the paged accesses Linux makes to the companion
+ * MT7530.  Keep it on only while the network is in use, so that an OS finds
+ * it off whether or not U-Boot used the network before booting it.
+ */
+static void en751221_switch_phy_poll(struct airoha_eth *eth, bool enable)
+{
+	if (!eth->soc->econet)
+		return;
+
+	airoha_switch_rmw(eth, SWITCH_PHY_POLL, SWITCH_PHY_AP_EN,
+			  enable ? SWITCH_PHY_AP_EN : 0);
+}
+
 static u32 en751221_qdma_lmgr_free(struct airoha_qdma *qdma);
 
 /*
@@ -2857,6 +2873,9 @@ static int airoha_eth_probe(struct udevice *dev)
 	if (ret)
 		return ret;
 
+	/* The device is probed on every boot; poll only once the network starts. */
+	en751221_switch_phy_poll(eth, false);
+
 	/*
 	 * The EN751221 vendor cold-boot sequence initializes the PHYs before
 	 * QDMA.  Chainloaded U-Boot used to inherit both from TCBoot, so keep
@@ -2957,6 +2976,8 @@ static int airoha_eth_init(struct udevice *dev)
 	qid = 0;
 	q = &qdma->q_rx[qid];
 
+	en751221_switch_phy_poll(qdma->eth, true);
+
 	if (airoha_uses_legacy_qdma(qdma->eth)) {
 		if (qdma->eth->soc->version == 0x7528)
 			en7528_qdma_init_rx_desc(qdma);
@@ -3055,6 +3076,8 @@ static void airoha_eth_stop(struct udevice *dev)
 	airoha_qdma_clear(qdma, REG_QDMA_GLOBAL_CFG,
 			  GLOBAL_CFG_TX_DMA_EN_MASK |
 			  GLOBAL_CFG_RX_DMA_EN_MASK);
+
+	en751221_switch_phy_poll(qdma->eth, false);
 
 	if (airoha_uses_legacy_qdma(qdma->eth))
 		en751221_qdma_trace(qdma, "stop");
