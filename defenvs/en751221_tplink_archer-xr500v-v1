@@ -35,8 +35,12 @@ load_oem_backups=\
   tftpboot 0x89a00000 ${oembootfile} && itest ${filesize} == 40000 && \
   itest.l *0x89a0000c == 0x36353738
 
+# The environment load attached UBI already: detach it before erasing the
+# partition, or 'ubi part ubi' keeps the stale attachment and every 'ubi
+# create' below fails on a partition that has just been erased.
 format_ubi_part=\
   if run load_oem_backups; then \
+    ubi detach && \
     mtd erase ubi && \
     ubi part ubi && \
     ubi create ubootenv 0x1f000 static && \
